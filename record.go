@@ -4,47 +4,67 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 	"time"
-	//"fmt"
+	"errors"
 )
 
 type Record struct {
-	crc    uint32
-	tstamp int32
-	ksz    uint32
-	vsz    uint32
-	flags  int32
-	ver    int32
-	key    string
-	value  []byte
+	buf []byte
 }
 
-func NewRecord(key string, value []byte, flags, ver int32) *Record {
-	crc := uint32(0)
+func MakeRecord(key string, value []byte) (*Record, uint32, error) {
+	var crc uint32
+	var tstamp int32
 	var ksz, vsz uint32
+	var flags, ver int32
+
+	// key should not be empty
+	if len(key) <= 0 {
+		return nil, 0, errors.New("Invalid key.")
+	}
+
+	// is it neccesary here?
+	if len(value) < 0 {
+		return nil, 0, errors.New("Invalid value bytes.")
+	}
+
+	tstamp = getTimestamp()
 	ksz = uint32(len(key))
 	vsz = uint32(len(value))
-	
-	t0 := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
-	tstamp := int32(time.Now().Sub(t0))
-	
-	return &Record{crc, tstamp, ksz, vsz, flags, ver, key, value}
+	flags = 0
+	ver = 0
+
+	buflen := ksz + vsz + 24
+	buf := make([]byte, buflen)
+
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(tstamp))
+	binary.LittleEndian.PutUint32(buf[8:12], ksz)
+	binary.LittleEndian.PutUint32(buf[12:16], vsz)
+	binary.LittleEndian.PutUint32(buf[16:20], uint32(flags))
+	binary.LittleEndian.PutUint32(buf[20:24], uint32(ver))
+
+	copy(buf[24:24 + ksz], []byte(key))
+	copy(buf[24 + ksz:], value)
+	//at last, make crc and put it in
+	crc = crc32.ChecksumIEEE(buf[4:])
+	binary.LittleEndian.PutUint32(buf[0:4], crc)
+
+	return &Record{buf}, buflen, nil
 }
 
-// Record format, |crc32|tstamp|ksz|vsz|flags|ver|  key  |   value   |
-func (r *Record) Encode() []byte {
-	record_len := r.ksz + r.vsz + 24
-	b := make([]byte, record_len)
-	binary.LittleEndian.PutUint32(b[4:8], uint32(r.tstamp))
-	binary.LittleEndian.PutUint32(b[8:12], r.ksz)
-	binary.LittleEndian.PutUint32(b[12:16], r.vsz)
-	binary.LittleEndian.PutUint32(b[16:20], uint32(r.flags))
-	binary.LittleEndian.PutUint32(b[20:24], uint32(r.ver))
+func (r *Record) GetBuf() []byte {
+	return r.buf
+}
 
-	copy(b[24:24+r.ksz], []byte(r.key))
-	copy(b[24+r.ksz:], r.value)
-	//at last, crc check
-	r.crc = crc32.ChecksumIEEE(b[4:])
-	binary.LittleEndian.PutUint32(b[0:4], r.crc)
+func GetKeySize(buf []byte) uint32 {
+	ksz := binary.LittleEndian.Uint32(buf[8:12])
+	return ksz
+}
 
-	return b
+func GetValueSize(buf []byte) uint32 {
+	return binary.LittleEndian.Uint32(buf[12:16])
+}
+
+func getTimestamp() int32 {
+ 	t0 := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
+ 	return int32(time.Now().Sub(t0))
 }
