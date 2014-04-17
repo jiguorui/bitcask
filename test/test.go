@@ -28,7 +28,7 @@ func test_keydir() {
 	kd.Set("abc", uint32(16), uint32(0), int32(0), int32(0))
 
 	e, _:= kd.Get("abc")
-	fmt.Printf("%s,%d\n", e.Key, e.Total_size)
+	fmt.Printf("%d\n", e.Total_size)
 
 }
 
@@ -42,7 +42,8 @@ func test_bitcask() {
 
 	for i := 0; i < 1000; i++ {
 		s := fmt.Sprintf("2key%d", i)
-		_, err = bc.Add(s, []byte("defghijklmnopqrstuvwxyzdsksjdksjkllsndls"))
+		_, err = bc.Add(s, []byte("adjkkskdkfk"))
+		//err = bc.Delete(s)
 		if err != nil {
 			fmt.Println(err)
 		}

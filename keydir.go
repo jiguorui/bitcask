@@ -23,7 +23,7 @@ import (
 )
 
 type KeyEntry struct {
-	Key string
+//	Key string
 	Total_size uint32
 	Offset     uint32
 	Tstamp     int32
@@ -31,14 +31,14 @@ type KeyEntry struct {
 }
 
 type KeyDir struct {
-	map_ map[string]int
-	entrys []KeyEntry
+	map_ map[string]KeyEntry
+	//entrys []KeyEntry
 }
 
 func NewKeyDir() (*KeyDir) {
-	var entrys []KeyEntry
-	map_ := make(map[string]int)
-	return &KeyDir{map_, entrys}
+	//var entrys []KeyEntry
+	map_ := make(map[string]KeyEntry)
+	return &KeyDir{map_}
 }
 
 func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) error {
@@ -46,10 +46,10 @@ func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) e
 		return ErrInvalid
 	}
 
-	entry := KeyEntry{key, total_sz, offset, tstamp, ver}
-	dir.entrys = append(dir.entrys, entry)
+	entry := KeyEntry{total_sz, offset, tstamp, ver}
+	//dir.entrys = append(dir.entrys, entry)
 	//use 1-based position store in map, becalse 0 means nothing in map
-	dir.map_[key] = len(dir.entrys)
+	dir.map_[key] = entry
 	return nil
 }
 
@@ -58,12 +58,21 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, error) {
 		return nil, ErrInvalid
 	}
 
-	i := dir.map_[key]
+	entry, ok := dir.map_[key]
 
-	if i > 0 {
-		//0-based index in slice, so [i - 1], be careful here
-		return &(dir.entrys[i-1]), nil		
+	if ok {
+		return &entry, nil		
 	}
 
 	return nil, errors.New("not exists.")
+}
+
+func (dir *KeyDir) Delete(key string) error {
+	if dir == nil {
+		return ErrInvalid
+	}
+
+	delete(dir.map_, key)
+
+	return nil
 }

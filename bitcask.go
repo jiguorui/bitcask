@@ -93,6 +93,24 @@ func (bc *Bitcask) Get(key string) ([]byte, error) {
 	return bc.bucket.Read(entry.Total_size, entry.Offset)
 }
 
+// Delete data by a key
+func (bc *Bitcask) Delete(key string) error {
+	if bc == nil {
+		return ErrInvalid
+	}
+
+	entry, err := bc.keydir.Get(key)
+	if err != nil && entry == nil {
+		return errors.New("No exists.")
+	}
+	//keydir delete
+	bc.keydir.Delete(key)
+
+	//To delete, just set empty value
+	_, err = bc.Set(key, []byte(""))
+	return err
+}
+
 // Close a Bitcask
 func (bc *Bitcask) Close() {
 	if bc == nil {
