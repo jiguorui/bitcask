@@ -40,15 +40,18 @@ func test_bitcask() {
 	}
 	defer bc.Close()
 
-	_, err = bc.Add("dssdsabc", []byte("defghijklmnopqrstuvwxyz"))
-	if err != nil {
-		fmt.Println(err)
+	for i := 0; i < 1000; i++ {
+		s := fmt.Sprintf("2key%d", i)
+		_, err = bc.Add(s, []byte("defghijklmnopqrstuvwxyzdsksjdksjkllsndls"))
+		if err != nil {
+			fmt.Println(err)
+		}
+		b, err := bc.Get(s)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Printf("%v\n", b)
 	}
-	b, err := bc.Get("dssdsabc")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Printf("%v\n", b)
 }
 
 func main() {

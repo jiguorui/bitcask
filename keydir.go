@@ -37,7 +37,7 @@ type KeyDir struct {
 
 func NewKeyDir() (*KeyDir) {
 	var entrys []KeyEntry
-	map_ := make(map[string]int, 128)
+	map_ := make(map[string]int)
 	return &KeyDir{map_, entrys}
 }
 
@@ -48,6 +48,7 @@ func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) e
 
 	entry := KeyEntry{key, total_sz, offset, tstamp, ver}
 	dir.entrys = append(dir.entrys, entry)
+	//use 1-based position store in map, becalse 0 means nothing in map
 	dir.map_[key] = len(dir.entrys)
 	return nil
 }
@@ -60,6 +61,7 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, error) {
 	i := dir.map_[key]
 
 	if i > 0 {
+		//0-based index in slice, so [i - 1], be careful here
 		return &(dir.entrys[i-1]), nil		
 	}
 
