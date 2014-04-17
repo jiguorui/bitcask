@@ -21,6 +21,7 @@ package bitcask
 import (
 	"strings"
 	"fmt"
+	"errors"
 )
 
 type Bitcask struct {
@@ -59,6 +60,19 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 	offset, _ := bc.bucket.GetWriteOffset()
 	bc.keydir.Set(key, uint32(total_sz), uint32(offset), int32(0), int32(0))
 	return bc.bucket.Write(r.GetBuf())
+}
+
+// Add a key/value into store only if it is not exists.
+func (bc *Bitcask) Add(key string, value []byte) (int32, error) {
+	if bc == nil {
+		return int32(0), ErrInvalid
+	}
+
+	entry, err := bc.keydir.Get(key)
+	if err != nil && entry == nil {
+		return bc.Set(key, value)
+	}
+	return 0, errors.New("Add failed: invalid or key exists.")
 }
 
 // Get value by key

@@ -40,7 +40,10 @@ func test_bitcask() {
 	}
 	defer bc.Close()
 
-	//bc.Set("dssdsabc", []byte("defghijklmnopqrstuvwxyz"))
+	_, err = bc.Add("dssdsabc", []byte("defghijklmnopqrstuvwxyz"))
+	if err != nil {
+		fmt.Println(err)
+	}
 	b, err := bc.Get("dssdsabc")
 	if err != nil {
 		fmt.Println(err)
