@@ -31,12 +31,14 @@ type KeyEntry struct {
 }
 
 type KeyDir struct {
+	map_ map[string]int
 	entrys []KeyEntry
 }
 
 func NewKeyDir() (*KeyDir) {
 	var entrys []KeyEntry
-	return &KeyDir{entrys}
+	map_ := make(map[string]int, 128)
+	return &KeyDir{map_, entrys}
 }
 
 func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) error {
@@ -46,6 +48,7 @@ func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) e
 
 	entry := KeyEntry{key, total_sz, offset, tstamp, ver}
 	dir.entrys = append(dir.entrys, entry)
+	dir.map_[key] = len(dir.entrys)
 	return nil
 }
 
@@ -54,11 +57,11 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, error) {
 		return nil, ErrInvalid
 	}
 
-	sz := len(dir.entrys)
-	for i := 0; i < sz; i++ {
-		if key == dir.entrys[i].Key {
-			return &(dir.entrys[i]), nil
-		}
+	i := dir.map_[key]
+
+	if i > 0 {
+		return &(dir.entrys[i-1]), nil		
 	}
+
 	return nil, errors.New("not exists.")
 }

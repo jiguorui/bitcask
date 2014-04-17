@@ -55,6 +55,10 @@ func main() {
 	//test_bucket()
 	//test_keydir()
 	test_bitcask()
+	//a := make(map[string]string,100)
+	//a["abc"] = "ddd"
+	//fmt.Printf("%s\n", a["abc"])
+	//fmt.Printf("%s\n", a["abcd"])
 	// fmt.Printf("Hello, bitcast\n")
 	// bc, err := bitcask.Open(".")
 	// if err != nil {
