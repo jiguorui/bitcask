@@ -40,8 +40,8 @@ func test_bitcask() {
 	}
 	defer bc.Close()
 
-	//bc.Set("abc", []byte("defghijklmnopqrstuvwxyz"))
-	b, err := bc.Get("abc")
+	//bc.Set("dssdsabc", []byte("defghijklmnopqrstuvwxyz"))
+	b, err := bc.Get("dssdsabc")
 	if err != nil {
 		fmt.Println(err)
 	}
