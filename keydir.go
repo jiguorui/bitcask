@@ -47,9 +47,8 @@ func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) e
 	}
 
 	entry := KeyEntry{total_sz, offset, tstamp, ver}
-	//dir.entrys = append(dir.entrys, entry)
-	//use 1-based position store in map, becalse 0 means nothing in map
 	dir.map_[key] = entry
+	
 	return nil
 }
 
