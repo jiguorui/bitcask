@@ -20,7 +20,7 @@ package bitcask
 
 import (
 	"strings"
-	"fmt"
+	//"fmt"
 	"errors"
 )
 
@@ -53,10 +53,15 @@ func Open(dir string) (*Bitcask, error) {
 
 // Store a key/value in a Bitcask datastore.
 func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
+	if bc == nil {
+		return int32(0), ErrInvalid
+	}
+
 	r, total_sz, err := MakeRecord(key, value)
 	if err != nil {
 		return 0, err
 	}
+
 	offset, _ := bc.bucket.GetWriteOffset()
 	bc.keydir.Set(key, uint32(total_sz), uint32(offset), int32(0), int32(0))
 	return bc.bucket.Write(r.GetBuf())
@@ -77,15 +82,22 @@ func (bc *Bitcask) Add(key string, value []byte) (int32, error) {
 
 // Get value by key
 func (bc *Bitcask) Get(key string) ([]byte, error) {
+	if bc == nil {
+		return []byte(""), ErrInvalid
+	}
+
 	entry, err := bc.keydir.Get(key)
 	if err != nil {
 		return []byte(""), err
 	}
-	fmt.Printf("%d,%d\n", entry.Total_size, entry.Offset)
 	return bc.bucket.Read(entry.Total_size, entry.Offset)
 }
 
 // Close a Bitcask
 func (bc *Bitcask) Close() {
+	if bc == nil {
+		return
+	}
+
 	bc.bucket.Close()
 }

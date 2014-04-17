@@ -70,6 +70,9 @@ func MakeRecord(key string, value []byte) (*Record, uint32, error) {
 }
 
 func (r *Record) GetBuf() []byte {
+	if r == nil {
+		panic("Invalid record pointer.")
+	}
 	return r.buf
 }
 
