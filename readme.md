@@ -24,6 +24,4 @@ Delete data by key, in fact, just set a empty value for that key.
 Merge the files.
 
 ## TODO
-
-multi thread safety, API clearly ......
-multi buckets manager
+bitcask.Merge
