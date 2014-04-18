@@ -108,6 +108,24 @@ func (bucket *Bucket) GetWriteOffset() (uint32, error) {
 	return uint32(offset), nil
 }
 
+// func (bucket *Bucket) readRecordInfo(offset int32) (*RecordInfo, error) {
+// 	offset_, err := bucket.rfile.Seek(offset, os.SEEK_SET)
+// 	if err != nil || int32(offset_) != offset {
+// 		return nil, errors.New("Seek file to start failed.")
+// 	}
+
+// 	buf := make([]byte, 24)
+// 	n, err := bucket.rfile.Read(buf)
+// 	if err != nil {
+// 		return []byte(""), err
+// 	}
+// 	if n < 24 {
+// 		return nil, errors.New("Read Header error.")
+// 	}
+
+// 	return GetRecordInfoFromBuf(buf)
+// }
+
 func (bucket *Bucket) Scan() (*KeyDir, error) {
 	if bucket == nil {
 		return nil, ErrInvalid
@@ -129,30 +147,47 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 			return nil, errors.New("Scan error.")
 		}
 
-		ksz := GetKeySize(buf)
-		keybuf := make([]byte, ksz)
+		//ksz := GetKeySize(buf)
+		rh, _ := DecodeRecordHeader(buf)
+		keybuf := make([]byte, rh.Ksz)
 		_, err = bucket.rfile.Read(keybuf)
 		if err != nil {
 			return nil, err
 		}
 
-		vsz := GetValueSize(buf)
-		if vsz == 0 {
+		//vsz := GetValueSize(buf)
+		if rh.Vsz == 0 {
 			//Deleted, do not need put it into keydir
 			keydir.Delete(string(keybuf))
 			continue
 		}
-		offset, err := bucket.rfile.Seek(int64(vsz), os.SEEK_CUR)
+		offset, err := bucket.rfile.Seek(int64(rh.Vsz), os.SEEK_CUR)
 		if err != nil {
 			return nil, errors.New("Seek file failed.")
 		}
 
-		ver := GetVersion(buf)
-		keydir.Set(string(keybuf), uint32(offset)-(ksz+vsz+24), (ksz + vsz + 24), 0, ver)
+		//ver := GetVersion(buf)
+		total_sz := rh.Ksz + rh.Vsz + 24
+		keydir.Set(string(keybuf), uint32(offset)-total_sz, total_sz, 0, rh.Ver)
 
 	}
 	return keydir, nil
 }
+
+// func (bucket *Bucket) Merge(path string) (int32, error) {
+// 	if bucket == nil {
+// 		return nil, ErrInvalid
+// 	}
+
+// 	offset, err := bucket.rfile.Seek(0, os.SEEK_SET)
+// 	if err != nil || offset != 0 {
+// 		return nil, errors.New("Seek file to start failed.")
+// 	}
+
+// 	for {
+
+// 	}
+// }
 
 // Close file
 func (bucket *Bucket) Close() {

@@ -58,21 +58,25 @@ func (bc *Bitcask) writeRecord(key string, value []byte, ver int32) (uint32, uin
 	var r *Record
 	var offset, total_sz uint32
 	var err error
+	var buf []byte
 
-	r, total_sz, err = MakeRecord(key, value, ver)
-	if err != nil {
-		goto FAIL
-	}
+	r = MakeRecord(key, value, ver)
 
 	offset, err = bc.bucket.GetWriteOffset()
 	if err != nil {
 		goto FAIL
 	}
 
-	_, err = bc.bucket.Write(r.GetBuf())
+	buf, err = r.Encode()
 	if err != nil {
 		goto FAIL
 	}
+	_, err = bc.bucket.Write(buf)
+	if err != nil {
+		goto FAIL
+	}
+
+	total_sz = r.Header.Ksz + r.Header.Vsz + 24
 
 	return uint32(offset), uint32(total_sz), nil
 FAIL:

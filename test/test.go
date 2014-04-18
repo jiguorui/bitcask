@@ -63,7 +63,7 @@ func test_bitcask() {
 			continue
 		}
 		if len(b) > 24 {
-			fmt.Printf("%s,%d\n", bitcask.StringForTest(b), bitcask.GetVersion(b))
+			//fmt.Printf("%s,%d\n", bitcask.StringForTest(b), bitcask.GetVersion(b))
 		}
 	}
 }

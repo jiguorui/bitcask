@@ -25,80 +25,143 @@ import (
 	"time"
 )
 
-type Record struct {
-	buf []byte
+//type Record struct {
+//	buf []byte
+//}
+
+type RecordHeader struct {
+	Crc uint32
+	Tstamp int32
+	Ksz, Vsz uint32
+	Flags, Ver int32	
 }
 
-func MakeRecord(key string, value []byte, ver int32) (*Record, uint32, error) {
-	var crc uint32
-	var tstamp int32
-	var ksz, vsz uint32
-	var flags int32
+type Record struct {
+	Header RecordHeader
+	Key string
+	Value []byte
+}
 
-	// key should not be empty
-	if len(key) <= 0 {
-		return nil, 0, errors.New("Invalid key.")
+func MakeRecord(key string, value []byte, ver int32) (*Record) {
+	//Just set crc to 0 here.
+	Crc := uint32(0)
+	Tstamp := getTimestamp()
+	Ksz := uint32(len(key))
+	Vsz := uint32(len(value))
+	Flags := int32(0)
+	Ver := ver
+	Header := RecordHeader{Crc, Tstamp, Ksz, Vsz, Flags, Ver}
+	return &Record{Header, key, value}
+}
+
+func (r *Record) Encode() ([]byte, error) {
+	if r == nil {
+		return []byte(""), ErrInvalid
 	}
 
-	// is it neccesary here?
-	if len(value) < 0 {
-		return nil, 0, errors.New("Invalid value bytes.")
-	}
-
-	tstamp = getTimestamp()
-	ksz = uint32(len(key))
-	vsz = uint32(len(value))
-	flags = 0
-
-	buflen := ksz + vsz + 24
+	buflen := r.Header.Ksz + r.Header.Vsz + 24
 	buf := make([]byte, buflen)
 
-	binary.LittleEndian.PutUint32(buf[4:8], uint32(tstamp))
-	binary.LittleEndian.PutUint32(buf[8:12], ksz)
-	binary.LittleEndian.PutUint32(buf[12:16], vsz)
-	binary.LittleEndian.PutUint32(buf[16:20], uint32(flags))
-	binary.LittleEndian.PutUint32(buf[20:24], uint32(ver))
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(r.Header.Tstamp))
+	binary.LittleEndian.PutUint32(buf[8:12], r.Header.Ksz)
+	binary.LittleEndian.PutUint32(buf[12:16], r.Header.Vsz)
+	binary.LittleEndian.PutUint32(buf[16:20], uint32(r.Header.Flags))
+	binary.LittleEndian.PutUint32(buf[20:24], uint32(r.Header.Ver))
 
-	copy(buf[24:24+ksz], []byte(key))
-	copy(buf[24+ksz:], value)
+	copy(buf[24:24+r.Header.Ksz], []byte(r.Key))
+	copy(buf[24+r.Header.Ksz:], r.Value)
 	//at last, make crc and put it in
-	crc = crc32.ChecksumIEEE(buf[4:])
-	binary.LittleEndian.PutUint32(buf[0:4], crc)
+	r.Header.Crc = crc32.ChecksumIEEE(buf[4:])
+	binary.LittleEndian.PutUint32(buf[0:4], r.Header.Crc)
 
-	return &Record{buf}, buflen, nil
+	return buf, nil
 }
 
-func (r *Record) GetBuf() []byte {
-	if r == nil {
-		panic("Invalid record pointer.")
-	}
-	return r.buf
-}
-
-func GetKeySize(buf []byte) uint32 {
-	ksz := binary.LittleEndian.Uint32(buf[8:12])
-	return ksz
-}
-
-func GetValueSize(buf []byte) uint32 {
-	return binary.LittleEndian.Uint32(buf[12:16])
-}
-
-func GetVersion(buf []byte) int32 {
-	return int32(binary.LittleEndian.Uint32(buf[20:24]))
-}
-
-func StringForTest(buf []byte) string {
-	if len(buf) < 24 {
-		return "invalid buff"
-	}
-	//ksz := binary.LittleEndian.Uint32(buf[8:12])
-	if len(buf) < 24 {
-		return "invalid buff"
+func DecodeRecordHeader(buf []byte) (*RecordHeader, error) {
+	if len(buf) != 24 {
+		return nil, errors.New("invalid buffer")
 	}
 
-	return string(buf[24:])
+	crc    := binary.LittleEndian.Uint32(buf[0:4])
+	tstamp := binary.LittleEndian.Uint32(buf[4:8])
+	ksz    := binary.LittleEndian.Uint32(buf[8:12])
+	vsz    := binary.LittleEndian.Uint32(buf[12:16])
+	flags  := binary.LittleEndian.Uint32(buf[16:20])
+	ver    := binary.LittleEndian.Uint32(buf[20:24])
+
+	return &RecordHeader{crc, int32(tstamp), ksz, vsz, int32(flags), int32(ver)}, nil
 }
+
+// func MakeRecord(key string, value []byte, ver int32) (*Record, uint32, error) {
+// 	var crc uint32
+// 	var tstamp int32
+// 	var ksz, vsz uint32
+// 	var flags int32
+
+// 	// key should not be empty
+// 	if len(key) <= 0 {
+// 		return nil, 0, errors.New("Invalid key.")
+// 	}
+
+// 	// is it neccesary here?
+// 	if len(value) < 0 {
+// 		return nil, 0, errors.New("Invalid value bytes.")
+// 	}
+
+// 	tstamp = getTimestamp()
+// 	ksz = uint32(len(key))
+// 	vsz = uint32(len(value))
+// 	flags = 0
+
+// 	buflen := ksz + vsz + 24
+// 	buf := make([]byte, buflen)
+
+// 	binary.LittleEndian.PutUint32(buf[4:8], uint32(tstamp))
+// 	binary.LittleEndian.PutUint32(buf[8:12], ksz)
+// 	binary.LittleEndian.PutUint32(buf[12:16], vsz)
+// 	binary.LittleEndian.PutUint32(buf[16:20], uint32(flags))
+// 	binary.LittleEndian.PutUint32(buf[20:24], uint32(ver))
+
+// 	copy(buf[24:24+ksz], []byte(key))
+// 	copy(buf[24+ksz:], value)
+// 	//at last, make crc and put it in
+// 	crc = crc32.ChecksumIEEE(buf[4:])
+// 	binary.LittleEndian.PutUint32(buf[0:4], crc)
+
+// 	return &Record{buf}, buflen, nil
+// }
+
+// func (r *Record) GetBuf() []byte {
+// 	if r == nil {
+// 		panic("Invalid record pointer.")
+// 	}
+// 	return r.buf
+// }
+
+// func GetKeySize(buf []byte) uint32 {
+// 	ksz := binary.LittleEndian.Uint32(buf[8:12])
+// 	return ksz
+// }
+
+// func GetValueSize(buf []byte) uint32 {
+// 	return binary.LittleEndian.Uint32(buf[12:16])
+// }
+
+// func GetVersion(buf []byte) int32 {
+// 	return int32(binary.LittleEndian.Uint32(buf[20:24]))
+// }
+
+// func StringForTest(buf []byte) string {
+// 	if len(buf) < 24 {
+// 		return "invalid buff"
+// 	}
+// 	//ksz := binary.LittleEndian.Uint32(buf[8:12])
+// 	if len(buf) < 24 {
+// 		return "invalid buff"
+// 	}
+
+// 	return string(buf[24:])
+// }
 
 func getTimestamp() int32 {
 	t0 := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
