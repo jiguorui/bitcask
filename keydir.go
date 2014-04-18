@@ -64,6 +64,7 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, bool, error) {
 		return &entry, ok, nil
 	}
 
+	//when we has no key in map, we do not return an error
 	return nil, false, nil
 }
 
