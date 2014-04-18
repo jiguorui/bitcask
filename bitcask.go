@@ -87,6 +87,9 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 		return int32(0), ErrInvalid
 	}
 
+	// empty value means delete
+	to_delete := len(value) == 0
+
 	var oldver, ver int32
 	entry, ok, err := bc.keydir.Get(key)
 	if err != nil {
@@ -95,16 +98,15 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 	if ok {
 		oldver = entry.Ver
 	}
-	ver = oldver + 1
-
-	// delete 
-	if len(value) == 0 {
-		b, err := bc.Get(key)
-		if err != nil {
-			return 0, err
+	if oldver < 0 {
+		if to_delete {
+			return 0, errors.New("has been deleted.")			
 		}
-		if GetValueSize(b) == 0 {
-			return 0, errors.New("has been deleted.")
+		ver = 1 - oldver
+	} else {
+		ver = oldver + 1
+		if to_delete {
+			ver = 0 - ver
 		}
 	}
 

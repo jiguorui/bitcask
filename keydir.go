@@ -19,7 +19,7 @@
 package bitcask
 
 import (
-	"errors"
+	//"errors"
 	"fmt"
 )
 
@@ -64,7 +64,7 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, bool, error) {
 		return &entry, ok, nil
 	}
 
-	return nil, false, errors.New("not exists.")
+	return nil, false, nil
 }
 
 func (dir *KeyDir) Delete(key string) error {
