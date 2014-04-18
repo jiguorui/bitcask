@@ -137,6 +137,11 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 		}
 
 		vsz := GetValueSize(buf)
+		if vsz == 0 {
+			//Deleted, do not need put it into keydir
+			keydir.Delete(string(keybuf))
+			continue
+		}
 		offset, err := bucket.rfile.Seek(int64(vsz), os.SEEK_CUR)
 		if err != nil {
 			return nil, errors.New("Seek file failed.")

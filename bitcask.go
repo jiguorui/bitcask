@@ -96,16 +96,29 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 	}
 	ver = oldver + 1
 
+	// delete 
+	if len(value) == 0 {
+		b, err := bc.Get(key)
+		if err != nil {
+			return 0, err
+		}
+		if GetValueSize(b) == 0 {
+			return 0, errors.New("has been deleted.")
+		}
+	}
+
 	offset, total_sz, err := bc.writeRecord(key, value, ver)
 	if err != nil {
 		return int32(0), errors.New("write failed.")
 	}
 
-	err = bc.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
-	if err != nil {
-		return int32(0), err
+	// if not delete op, add to keydir
+	if len(value) > 0 {
+		err = bc.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
+		if err != nil {
+			return int32(0), err
+		}
 	}
-
 	return int32(total_sz), nil
 }
 
@@ -145,12 +158,18 @@ func (bc *Bitcask) Delete(key string) error {
 	if err != nil && entry == nil {
 		return errors.New("No exists.")
 	}
-	//keydir delete
-	bc.keydir.Delete(key)
 
 	//To delete, just set empty value
 	_, err = bc.Set(key, []byte(""))
-	return err
+
+	if err != nil {
+		return err
+	}
+
+	//Then, keydir delete
+	bc.keydir.Delete(key)
+
+	return nil
 }
 
 // Close a Bitcask

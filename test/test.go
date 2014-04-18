@@ -42,12 +42,21 @@ func test_bitcask() {
 
 	for i := 0; i < 100; i++ {
 		s := fmt.Sprintf("key:%d", i)
-		_, err = bc.Set(s, []byte("Hello2"))
-		//err = bc.Delete(s)
+		//_, err = bc.Set(s, []byte("Hello, world."))
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
+
+		// if i % 2 == 0 {
+		//err = bc.Delete(s)
+		 if err != nil {
+		 	fmt.Println(err)
+		 	continue
+		 }
+			
+		// }
+	
 		b, err := bc.Get(s)
 		if err != nil {
 			fmt.Println(err)
