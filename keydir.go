@@ -20,14 +20,15 @@ package bitcask
 
 import (
 	"errors"
+	"fmt"
 )
 
 type KeyEntry struct {
-//	Key string
+	//	Key string
 	Total_size uint32
 	Offset     uint32
 	Tstamp     int32
-	Ver int32
+	Ver        int32
 }
 
 type KeyDir struct {
@@ -35,20 +36,20 @@ type KeyDir struct {
 	//entrys []KeyEntry
 }
 
-func NewKeyDir() (*KeyDir) {
+func NewKeyDir() *KeyDir {
 	//var entrys []KeyEntry
 	map_ := make(map[string]KeyEntry)
 	return &KeyDir{map_}
 }
 
-func (dir *KeyDir) Set(key string, total_sz, offset uint32, tstamp, ver int32) error {
+func (dir *KeyDir) Set(key string, offset, total_sz uint32, tstamp, ver int32) error {
 	if dir == nil {
 		return ErrInvalid
 	}
 
 	entry := KeyEntry{total_sz, offset, tstamp, ver}
 	dir.map_[key] = entry
-	
+
 	return nil
 }
 
@@ -60,7 +61,7 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, error) {
 	entry, ok := dir.map_[key]
 
 	if ok {
-		return &entry, nil		
+		return &entry, nil
 	}
 
 	return nil, errors.New("not exists.")
@@ -74,4 +75,10 @@ func (dir *KeyDir) Delete(key string) error {
 	delete(dir.map_, key)
 
 	return nil
+}
+
+func (dir *KeyDir) DebugShow() {
+	for _, entry := range dir.map_ {
+		fmt.Printf("%v\n", entry)
+	}
 }

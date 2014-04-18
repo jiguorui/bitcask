@@ -20,20 +20,20 @@ package bitcask
 
 import (
 	"encoding/binary"
+	"errors"
 	"hash/crc32"
 	"time"
-	"errors"
 )
 
 type Record struct {
 	buf []byte
 }
 
-func MakeRecord(key string, value []byte) (*Record, uint32, error) {
+func MakeRecord(key string, value []byte, ver int32) (*Record, uint32, error) {
 	var crc uint32
 	var tstamp int32
 	var ksz, vsz uint32
-	var flags, ver int32
+	var flags int32
 
 	// key should not be empty
 	if len(key) <= 0 {
@@ -49,7 +49,6 @@ func MakeRecord(key string, value []byte) (*Record, uint32, error) {
 	ksz = uint32(len(key))
 	vsz = uint32(len(value))
 	flags = 0
-	ver = 0
 
 	buflen := ksz + vsz + 24
 	buf := make([]byte, buflen)
@@ -60,8 +59,8 @@ func MakeRecord(key string, value []byte) (*Record, uint32, error) {
 	binary.LittleEndian.PutUint32(buf[16:20], uint32(flags))
 	binary.LittleEndian.PutUint32(buf[20:24], uint32(ver))
 
-	copy(buf[24:24 + ksz], []byte(key))
-	copy(buf[24 + ksz:], value)
+	copy(buf[24:24+ksz], []byte(key))
+	copy(buf[24+ksz:], value)
 	//at last, make crc and put it in
 	crc = crc32.ChecksumIEEE(buf[4:])
 	binary.LittleEndian.PutUint32(buf[0:4], crc)
@@ -85,7 +84,23 @@ func GetValueSize(buf []byte) uint32 {
 	return binary.LittleEndian.Uint32(buf[12:16])
 }
 
+func GetVersion(buf []byte) int32 {
+	return int32(binary.LittleEndian.Uint32(buf[20:24]))
+}
+
+func StringForTest(buf []byte) string {
+	if len(buf) < 24 {
+		return "invalid buff"
+	}
+	//ksz := binary.LittleEndian.Uint32(buf[8:12])
+	if len(buf) < 24 {
+		return "invalid buff"
+	}
+
+	return string(buf[24:])
+}
+
 func getTimestamp() int32 {
- 	t0 := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
- 	return int32(time.Now().Sub(t0))
+	t0 := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
+	return int32(time.Now().Sub(t0))
 }

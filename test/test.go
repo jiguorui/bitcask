@@ -40,18 +40,22 @@ func test_bitcask() {
 	}
 	defer bc.Close()
 
-	for i := 0; i < 1000; i++ {
-		s := fmt.Sprintf("2key%d", i)
-		_, err = bc.Add(s, []byte("adjkkskdkfk"))
+	for i := 0; i < 100; i++ {
+		s := fmt.Sprintf("key:%d", i)
+		_, err = bc.Set(s, []byte("Hello2"))
 		//err = bc.Delete(s)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
 		b, err := bc.Get(s)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
-		fmt.Printf("%v\n", b)
+		if len(b) > 24 {
+			fmt.Printf("%s,%d\n", bitcask.StringForTest(b), bitcask.GetVersion(b))
+		}
 	}
 }
 

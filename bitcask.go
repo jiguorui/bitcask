@@ -48,7 +48,37 @@ func Open(dir string) (*Bitcask, error) {
 		return nil, err
 	}
 
+	keydir.DebugShow()
+
 	return &Bitcask{bk, keydir}, nil
+}
+
+// Local func
+func (bc *Bitcask) writeRecord(key string, value []byte, ver int32) (uint32, uint32, error) {
+	var r *Record
+	var offset, total_sz uint32
+	var err error
+
+	r, total_sz, err = MakeRecord(key, value, ver)
+	if err != nil {
+		goto FAIL
+	}
+
+	offset, err = bc.bucket.GetWriteOffset()
+	if err != nil {
+		goto FAIL
+	}
+
+	_, err = bc.bucket.Write(r.GetBuf())
+	if err != nil {
+		goto FAIL
+	}
+
+	return uint32(offset), uint32(total_sz), nil
+FAIL:
+	offset = uint32(0)
+	total_sz = uint32(0)
+	return uint32(offset), uint32(total_sz), err
 }
 
 // Store a key/value in a Bitcask datastore.
@@ -57,14 +87,26 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 		return int32(0), ErrInvalid
 	}
 
-	r, total_sz, err := MakeRecord(key, value)
+	var oldver, ver int32
+	entry, err := bc.keydir.Get(key)
+	if err != nil || entry == nil {
+		oldver = 0
+	} else {
+		oldver = entry.Ver
+	}
+	ver = oldver + 1
+
+	offset, total_sz, err := bc.writeRecord(key, value, ver)
 	if err != nil {
-		return 0, err
+		return int32(0), errors.New("write failed.")
 	}
 
-	offset, _ := bc.bucket.GetWriteOffset()
-	bc.keydir.Set(key, uint32(total_sz), uint32(offset), int32(0), int32(0))
-	return bc.bucket.Write(r.GetBuf())
+	err = bc.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
+	if err != nil {
+		return int32(0), err
+	}
+
+	return int32(total_sz), nil
 }
 
 // Add a key/value into store only if it is not exists.
@@ -90,7 +132,7 @@ func (bc *Bitcask) Get(key string) ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	return bc.bucket.Read(entry.Total_size, entry.Offset)
+	return bc.bucket.Read(entry.Offset, entry.Total_size)
 }
 
 // Delete data by a key

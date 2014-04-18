@@ -23,13 +23,14 @@ import (
 	"errors"
 	"io"
 	"os"
+	//"fmt"
 )
 
 type Bucket struct {
 	path    string
 	file_id int
-	wfile *os.File
-	rfile *os.File
+	wfile   *os.File
+	rfile   *os.File
 }
 
 var ErrInvalid = errors.New("invalid argument")
@@ -64,6 +65,7 @@ func (bucket *Bucket) Write(buf []byte) (int32, error) {
 	if err != nil {
 		return int32(n), err
 	}
+	//TODO: after write failed, file is dirty, how to do here ?
 	if n < buflen {
 		return int32(n), errors.New("Write op is not complete.")
 	}
@@ -71,7 +73,7 @@ func (bucket *Bucket) Write(buf []byte) (int32, error) {
 }
 
 // Read bytes form file
-func (bucket *Bucket) Read(total_sz, offset uint32) ([]byte, error) {
+func (bucket *Bucket) Read(offset, total_sz uint32) ([]byte, error) {
 	if bucket == nil {
 		return []byte(""), ErrInvalid
 	}
@@ -114,7 +116,7 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 	offset, err := bucket.rfile.Seek(0, os.SEEK_SET)
 	if err != nil || offset != 0 {
 		return nil, errors.New("Seek file to start failed.")
-	}	
+	}
 
 	keydir := NewKeyDir()
 	for {
@@ -138,9 +140,10 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 		offset, err := bucket.rfile.Seek(int64(vsz), os.SEEK_CUR)
 		if err != nil {
 			return nil, errors.New("Seek file failed.")
-		}	
+		}
 
-		keydir.Set(string(keybuf), (ksz+vsz+24), uint32(offset) - (ksz+vsz+24), 0, 0)
+		ver := GetVersion(buf)
+		keydir.Set(string(keybuf), uint32(offset)-(ksz+vsz+24), (ksz + vsz + 24), 0, ver)
 
 	}
 	return keydir, nil
