@@ -100,7 +100,7 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 	}
 	if oldver < 0 {
 		if to_delete {
-			return 0, errors.New("has been deleted.")			
+			return 0, errors.New("has been deleted.")
 		}
 		ver = 1 - oldver
 	} else {
