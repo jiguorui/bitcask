@@ -88,10 +88,11 @@ func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
 	}
 
 	var oldver, ver int32
-	entry, err := bc.keydir.Get(key)
-	if err != nil || entry == nil {
-		oldver = 0
-	} else {
+	entry, ok, err := bc.keydir.Get(key)
+	if err != nil {
+		return int32(0), err
+	}
+	if ok {
 		oldver = entry.Ver
 	}
 	ver = oldver + 1
@@ -128,8 +129,8 @@ func (bc *Bitcask) Add(key string, value []byte) (int32, error) {
 		return int32(0), ErrInvalid
 	}
 
-	entry, err := bc.keydir.Get(key)
-	if err != nil && entry == nil {
+	_, has, _ := bc.keydir.Get(key)
+	if !has {
 		return bc.Set(key, value)
 	}
 	return 0, errors.New("Add failed: invalid or key exists.")
@@ -141,10 +142,11 @@ func (bc *Bitcask) Get(key string) ([]byte, error) {
 		return []byte(""), ErrInvalid
 	}
 
-	entry, err := bc.keydir.Get(key)
+	entry, _, err := bc.keydir.Get(key)
 	if err != nil {
 		return []byte(""), err
 	}
+
 	return bc.bucket.Read(entry.Offset, entry.Total_size)
 }
 
@@ -154,15 +156,15 @@ func (bc *Bitcask) Delete(key string) error {
 		return ErrInvalid
 	}
 
-	entry, err := bc.keydir.Get(key)
-	if err != nil && entry == nil {
-		return errors.New("No exists.")
-	}
+	_, has, err := bc.keydir.Get(key)
 
 	//To delete, just set empty value
-	_, err = bc.Set(key, []byte(""))
-
-	if err != nil {
+	if has {
+		_, err := bc.Set(key, []byte(""))
+		if err != nil {
+			return err
+		}
+	} else {
 		return err
 	}
 

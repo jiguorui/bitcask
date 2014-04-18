@@ -53,18 +53,18 @@ func (dir *KeyDir) Set(key string, offset, total_sz uint32, tstamp, ver int32) e
 	return nil
 }
 
-func (dir *KeyDir) Get(key string) (*KeyEntry, error) {
+func (dir *KeyDir) Get(key string) (*KeyEntry, bool, error) {
 	if dir == nil {
-		return nil, ErrInvalid
+		return nil, false, ErrInvalid
 	}
 
 	entry, ok := dir.map_[key]
 
 	if ok {
-		return &entry, nil
+		return &entry, ok, nil
 	}
 
-	return nil, errors.New("not exists.")
+	return nil, false, errors.New("not exists.")
 }
 
 func (dir *KeyDir) Delete(key string) error {

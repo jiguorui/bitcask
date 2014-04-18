@@ -27,7 +27,7 @@ func test_keydir() {
 	kd := bitcask.NewKeyDir()
 	kd.Set("abc", uint32(16), uint32(0), int32(0), int32(0))
 
-	e, _:= kd.Get("abc")
+	e, _, _:= kd.Get("abc")
 	fmt.Printf("%d\n", e.Total_size)
 
 }
