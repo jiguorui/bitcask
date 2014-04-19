@@ -29,7 +29,7 @@ type Bitcask struct {
 	keydir *KeyDir
 }
 
-// Open a existing Bitcask datastore.
+// Open an existing Bitcask datastore.
 func Open(dir string) (*Bitcask, error) {
 	s := []string{dir, "001.ar"}
 	sep := "/"
