@@ -108,86 +108,104 @@ func (bucket *Bucket) GetWriteOffset() (uint32, error) {
 	return uint32(offset), nil
 }
 
-// func (bucket *Bucket) readRecordInfo(offset int32) (*RecordInfo, error) {
-// 	offset_, err := bucket.rfile.Seek(offset, os.SEEK_SET)
-// 	if err != nil || int32(offset_) != offset {
-// 		return nil, errors.New("Seek file to start failed.")
-// 	}
+// before call, move the file cursor to right position
+// return nil means at the file end.
+// any error occur, panic!
+func (bucket *Bucket) readRecordHeader() (*RecordHeader) {
+	buf := make([]byte, 24)
+	n, err := bucket.rfile.Read(buf)
+	if err == io.EOF && n == 0 {
+		return nil
+	}
+	// if any error, panic!!!
+	if err != nil {
+		panic(err.Error())
+	}
+	if n < 24 {
+		panic("Read Header error.")
+	}
 
-// 	buf := make([]byte, 24)
-// 	n, err := bucket.rfile.Read(buf)
-// 	if err != nil {
-// 		return []byte(""), err
-// 	}
-// 	if n < 24 {
-// 		return nil, errors.New("Read Header error.")
-// 	}
+	rh, err := DecodeRecordHeader(buf)
+	if err != nil {
+		panic(err.Error())
+	}
+	return rh
+}
 
-// 	return GetRecordInfoFromBuf(buf)
-// }
+// move read cursor by offset from current position
+// panic or success.
+func (bucket *Bucket) move(offset uint32) int32 {
+	offset_, err := bucket.rfile.Seek(int64(offset), os.SEEK_CUR)
+	if err != nil {
+		panic("Seek file failed.")
+	}
+	return int32(offset_)
+}
+
+// set read cursor position
+// panic or success
+func (bucket *Bucket) position(pos uint32) uint32 {
+	offset, err := bucket.rfile.Seek(int64(pos), os.SEEK_SET)
+	if err != nil {
+		panic(err.Error())
+	}	
+	return uint32(offset)
+}
 
 func (bucket *Bucket) Scan() (*KeyDir, error) {
 	if bucket == nil {
 		return nil, ErrInvalid
 	}
 
-	offset, err := bucket.rfile.Seek(0, os.SEEK_SET)
-	if err != nil || offset != 0 {
-		return nil, errors.New("Seek file to start failed.")
-	}
+	bucket.position(0)
 
 	keydir := NewKeyDir()
 	for {
-		buf := make([]byte, 24)
-		n, err := bucket.rfile.Read(buf)
-		if err == io.EOF {
+		rh := bucket.readRecordHeader()
+		if rh == nil {
 			break
 		}
-		if n < 24 {
-			return nil, errors.New("Scan error.")
-		}
 
-		//ksz := GetKeySize(buf)
-		rh, _ := DecodeRecordHeader(buf)
 		keybuf := make([]byte, rh.Ksz)
-		_, err = bucket.rfile.Read(keybuf)
+		_, err := bucket.rfile.Read(keybuf)
 		if err != nil {
 			return nil, err
 		}
 
-		//vsz := GetValueSize(buf)
 		if rh.Vsz == 0 {
 			//Deleted, do not need put it into keydir
 			keydir.Delete(string(keybuf))
 			continue
 		}
-		offset, err := bucket.rfile.Seek(int64(rh.Vsz), os.SEEK_CUR)
-		if err != nil {
-			return nil, errors.New("Seek file failed.")
-		}
-
-		//ver := GetVersion(buf)
-		total_sz := rh.Ksz + rh.Vsz + 24
-		keydir.Set(string(keybuf), uint32(offset)-total_sz, total_sz, 0, rh.Ver)
+		offset := bucket.move(rh.Vsz)
+		total_sz, _ := rh.GetTotalSize()
+		keydir.Set(string(keybuf), uint32(offset)-uint32(total_sz), uint32(total_sz), 0, rh.Ver)
 
 	}
 	return keydir, nil
 }
 
-// func (bucket *Bucket) Merge(path string) (int32, error) {
-// 	if bucket == nil {
-// 		return nil, ErrInvalid
-// 	}
+func (bucket *Bucket) Merge(path string) error {
+	keydir, err := bucket.Scan()
+	if err != nil {
+		return err
+	}
+		
+	mf, err := os.OpenFile(path, os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return err
+	}
 
-// 	offset, err := bucket.rfile.Seek(0, os.SEEK_SET)
-// 	if err != nil || offset != 0 {
-// 		return nil, errors.New("Seek file to start failed.")
-// 	}
-
-// 	for {
-
-// 	}
-// }
+	for _, entry := range keydir.GetMap() {
+		buf, err := bucket.Read(entry.Offset, entry.Total_size)
+		if err != nil {
+			return err
+		}
+		mf.Write(buf)
+	}
+	mf.Close()
+	return nil
+}
 
 // Close file
 func (bucket *Bucket) Close() {

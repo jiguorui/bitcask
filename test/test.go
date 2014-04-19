@@ -13,14 +13,7 @@ func test_bucket() {
 
 	defer bucket.Close()
 
-	n, err := bucket.Write([]byte("abcdef"))
-	fmt.Printf("%d,%v", n, err)
-	offset, err := bucket.GetWriteOffset()
-	fmt.Printf("%d,%v", offset, err)
-
-	b, err := bucket.Read(12, 2)
-	fmt.Println(string(b))
-
+	bucket.Merge("001.ar.data")
 }
 
 func test_keydir() {
@@ -71,7 +64,8 @@ func test_bitcask() {
 func main() {
 	//test_bucket()
 	//test_keydir()
-	test_bitcask()
+	//test_bitcask()
+	test_bucket()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"
 	//fmt.Printf("%s\n", a["abc"])

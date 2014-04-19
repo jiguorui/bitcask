@@ -78,6 +78,10 @@ func (dir *KeyDir) Delete(key string) error {
 	return nil
 }
 
+func (dir *KeyDir) GetMap() map[string]KeyEntry {
+	return dir.map_
+}
+
 func (dir *KeyDir) DebugShow() {
 	for _, entry := range dir.map_ {
 		fmt.Printf("%v\n", entry)

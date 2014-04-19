@@ -25,10 +25,6 @@ import (
 	"time"
 )
 
-//type Record struct {
-//	buf []byte
-//}
-
 type RecordHeader struct {
 	Crc uint32
 	Tstamp int32
@@ -92,76 +88,13 @@ func DecodeRecordHeader(buf []byte) (*RecordHeader, error) {
 	return &RecordHeader{crc, int32(tstamp), ksz, vsz, int32(flags), int32(ver)}, nil
 }
 
-// func MakeRecord(key string, value []byte, ver int32) (*Record, uint32, error) {
-// 	var crc uint32
-// 	var tstamp int32
-// 	var ksz, vsz uint32
-// 	var flags int32
+func (rh *RecordHeader) GetTotalSize() (int, error) {
+	if rh == nil {
+		return 0, ErrInvalid
+	}
 
-// 	// key should not be empty
-// 	if len(key) <= 0 {
-// 		return nil, 0, errors.New("Invalid key.")
-// 	}
-
-// 	// is it neccesary here?
-// 	if len(value) < 0 {
-// 		return nil, 0, errors.New("Invalid value bytes.")
-// 	}
-
-// 	tstamp = getTimestamp()
-// 	ksz = uint32(len(key))
-// 	vsz = uint32(len(value))
-// 	flags = 0
-
-// 	buflen := ksz + vsz + 24
-// 	buf := make([]byte, buflen)
-
-// 	binary.LittleEndian.PutUint32(buf[4:8], uint32(tstamp))
-// 	binary.LittleEndian.PutUint32(buf[8:12], ksz)
-// 	binary.LittleEndian.PutUint32(buf[12:16], vsz)
-// 	binary.LittleEndian.PutUint32(buf[16:20], uint32(flags))
-// 	binary.LittleEndian.PutUint32(buf[20:24], uint32(ver))
-
-// 	copy(buf[24:24+ksz], []byte(key))
-// 	copy(buf[24+ksz:], value)
-// 	//at last, make crc and put it in
-// 	crc = crc32.ChecksumIEEE(buf[4:])
-// 	binary.LittleEndian.PutUint32(buf[0:4], crc)
-
-// 	return &Record{buf}, buflen, nil
-// }
-
-// func (r *Record) GetBuf() []byte {
-// 	if r == nil {
-// 		panic("Invalid record pointer.")
-// 	}
-// 	return r.buf
-// }
-
-// func GetKeySize(buf []byte) uint32 {
-// 	ksz := binary.LittleEndian.Uint32(buf[8:12])
-// 	return ksz
-// }
-
-// func GetValueSize(buf []byte) uint32 {
-// 	return binary.LittleEndian.Uint32(buf[12:16])
-// }
-
-// func GetVersion(buf []byte) int32 {
-// 	return int32(binary.LittleEndian.Uint32(buf[20:24]))
-// }
-
-// func StringForTest(buf []byte) string {
-// 	if len(buf) < 24 {
-// 		return "invalid buff"
-// 	}
-// 	//ksz := binary.LittleEndian.Uint32(buf[8:12])
-// 	if len(buf) < 24 {
-// 		return "invalid buff"
-// 	}
-
-// 	return string(buf[24:])
-// }
+	return int(rh.Ksz + rh.Vsz + 24), nil
+}
 
 func getTimestamp() int32 {
 	t0 := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
