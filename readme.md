@@ -1,10 +1,11 @@
 # Bitcask - a key/value datastore
 
-It is very simply now. Keep going ... ...
+It is very simply now. 
+Keep going ... ...
 
-## Set
+## Put
 
-"Set" means "store this data". 
+"Put" means "store this data". 
 
 ## Add
 
