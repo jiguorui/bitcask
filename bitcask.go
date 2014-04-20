@@ -129,19 +129,6 @@ func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
 	return int32(total_sz), nil
 }
 
-// Add a key/value into store only if it is not exists.
-func (bc *Bitcask) Add(key string, value []byte) (int32, error) {
-	if bc == nil {
-		return int32(0), ErrInvalid
-	}
-
-	_, has, _ := bc.keydir.Get(key)
-	if !has {
-		return bc.Put(key, value)
-	}
-	return 0, errors.New("Add failed: invalid or key exists.")
-}
-
 // Get value by key
 func (bc *Bitcask) Get(key string) ([]byte, error) {
 	if bc == nil {

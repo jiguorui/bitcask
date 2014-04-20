@@ -7,11 +7,6 @@ Keep going ... ...
 
 "Put" means "store this data". 
 
-## Add
-
-"Add" means "store this data, but only if the server *doesn't* already
-  hold data for this key". 
-
 ## Delete  
 
 Delete data by key, in fact, just set a empty value for that key.
