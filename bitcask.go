@@ -86,7 +86,7 @@ FAIL:
 }
 
 // Store a key/value in a Bitcask datastore.
-func (bc *Bitcask) Set(key string, value []byte) (int32, error) {
+func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
 	if bc == nil {
 		return int32(0), ErrInvalid
 	}
@@ -137,7 +137,7 @@ func (bc *Bitcask) Add(key string, value []byte) (int32, error) {
 
 	_, has, _ := bc.keydir.Get(key)
 	if !has {
-		return bc.Set(key, value)
+		return bc.Put(key, value)
 	}
 	return 0, errors.New("Add failed: invalid or key exists.")
 }
@@ -166,7 +166,7 @@ func (bc *Bitcask) Delete(key string) error {
 
 	//To delete, just set empty value
 	if has {
-		_, err := bc.Set(key, []byte(""))
+		_, err := bc.Put(key, []byte(""))
 		if err != nil {
 			return err
 		}

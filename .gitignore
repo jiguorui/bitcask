@@ -22,4 +22,5 @@
 *.bak
 bin/*
 *.ar
+*.data
 test/*.ar
