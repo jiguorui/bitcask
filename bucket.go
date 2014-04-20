@@ -111,7 +111,7 @@ func (bucket *Bucket) GetWriteOffset() (uint32, error) {
 // before call, move the file cursor to right position
 // return nil means at the file end.
 // any error occur, panic!
-func (bucket *Bucket) readRecordHeader() (*RecordHeader) {
+func (bucket *Bucket) readRecordHeader() *RecordHeader {
 	buf := make([]byte, 24)
 	n, err := bucket.rfile.Read(buf)
 	if err == io.EOF && n == 0 {
@@ -148,7 +148,7 @@ func (bucket *Bucket) position(pos uint32) uint32 {
 	offset, err := bucket.rfile.Seek(int64(pos), os.SEEK_SET)
 	if err != nil {
 		panic(err.Error())
-	}	
+	}
 	return uint32(offset)
 }
 
@@ -190,7 +190,7 @@ func (bucket *Bucket) Merge(path string) error {
 	if err != nil {
 		return err
 	}
-		
+
 	mf, err := os.OpenFile(path, os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return err

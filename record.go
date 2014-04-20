@@ -26,19 +26,19 @@ import (
 )
 
 type RecordHeader struct {
-	Crc uint32
-	Tstamp int32
-	Ksz, Vsz uint32
-	Flags, Ver int32	
+	Crc        uint32
+	Tstamp     int32
+	Ksz, Vsz   uint32
+	Flags, Ver int32
 }
 
 type Record struct {
 	Header RecordHeader
-	Key string
-	Value []byte
+	Key    string
+	Value  []byte
 }
 
-func MakeRecord(key string, value []byte, ver int32) (*Record) {
+func MakeRecord(key string, value []byte, ver int32) *Record {
 	//Just set crc to 0 here.
 	Crc := uint32(0)
 	Tstamp := getTimestamp()
@@ -78,12 +78,12 @@ func DecodeRecordHeader(buf []byte) (*RecordHeader, error) {
 		return nil, errors.New("invalid buffer")
 	}
 
-	crc    := binary.LittleEndian.Uint32(buf[0:4])
+	crc := binary.LittleEndian.Uint32(buf[0:4])
 	tstamp := binary.LittleEndian.Uint32(buf[4:8])
-	ksz    := binary.LittleEndian.Uint32(buf[8:12])
-	vsz    := binary.LittleEndian.Uint32(buf[12:16])
-	flags  := binary.LittleEndian.Uint32(buf[16:20])
-	ver    := binary.LittleEndian.Uint32(buf[20:24])
+	ksz := binary.LittleEndian.Uint32(buf[8:12])
+	vsz := binary.LittleEndian.Uint32(buf[12:16])
+	flags := binary.LittleEndian.Uint32(buf[16:20])
+	ver := binary.LittleEndian.Uint32(buf[20:24])
 
 	return &RecordHeader{crc, int32(tstamp), ksz, vsz, int32(flags), int32(ver)}, nil
 }
