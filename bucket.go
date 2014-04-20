@@ -23,6 +23,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"math"
 	//"fmt"
 )
 
@@ -161,6 +162,7 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 
 	keydir := NewKeyDir()
 	for {
+		var oldver int32
 		rh := bucket.readRecordHeader()
 		if rh == nil {
 			break
@@ -171,15 +173,17 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		if rh.Vsz == 0 {
-			//Deleted, do not need put it into keydir
-			keydir.Delete(string(keybuf))
-			continue
+		entry, has, _ := keydir.Get(string(keybuf))
+		if has {
+			oldver = entry.Ver
 		}
+
 		offset := bucket.move(rh.Vsz)
-		total_sz, _ := rh.GetTotalSize()
-		keydir.Set(string(keybuf), uint32(offset)-uint32(total_sz), uint32(total_sz), 0, rh.Ver)
+		// check if version is last
+		if math.Abs(float64(rh.Ver)) > math.Abs(float64(oldver)) {
+			total_sz, _ := rh.GetTotalSize()
+			keydir.Set(string(keybuf), uint32(offset)-uint32(total_sz), uint32(total_sz), 0, rh.Ver)
+		}
 
 	}
 	return keydir, nil

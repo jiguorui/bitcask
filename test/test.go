@@ -64,7 +64,7 @@ func test_bitcask() {
 func main() {
 	//test_bucket()
 	//test_keydir()
-	//test_bitcask()
+	test_bitcask()
 	test_bucket()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"
