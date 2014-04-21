@@ -199,15 +199,18 @@ func (bucket *Bucket) Merge(path string) error {
 	if err != nil {
 		return err
 	}
+	defer mf.Close()
 
 	for _, entry := range keydir.GetMap() {
-		buf, err := bucket.Read(entry.Offset, entry.Total_size)
-		if err != nil {
-			return err
+		if entry.Ver > 0 {
+			buf, err := bucket.Read(entry.Offset, entry.Total_size)
+			if err != nil {
+				return err
+			}
+			mf.Write(buf)
 		}
-		mf.Write(buf)
 	}
-	mf.Close()
+	
 	return nil
 }
 
