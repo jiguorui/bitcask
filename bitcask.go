@@ -119,13 +119,12 @@ func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
 		return int32(0), errors.New("write failed.")
 	}
 
-	// if not delete op, add to keydir
-	if len(value) > 0 {
-		err = bc.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
-		if err != nil {
-			return int32(0), err
-		}
+	// keydir
+	err = bc.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
+	if err != nil {
+		return int32(0), err
 	}
+
 	return int32(total_sz), nil
 }
 
