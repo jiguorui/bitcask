@@ -22,8 +22,8 @@ import (
 	//"bufio"
 	"errors"
 	"io"
-	"os"
 	"math"
+	"os"
 	//"fmt"
 )
 
@@ -68,7 +68,7 @@ func (f *File) Get(key string) ([]byte, error) {
 	entry, has, err := f.keydir.Get(key)
 	if has {
 		if entry.Ver > 0 {
-			return f.read(entry.Offset, entry.Total_size)			
+			return f.read(entry.Offset, entry.Total_size)
 		}
 	}
 	if err != nil {
@@ -129,7 +129,7 @@ func (f *File) Merge(path string) error {
 			mf.Write(buf)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -306,4 +306,3 @@ func (f *File) scan() (*KeyDir, error) {
 	}
 	return keydir, nil
 }
-
