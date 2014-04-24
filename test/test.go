@@ -27,22 +27,23 @@ func test_file() {
 
 // }
 
-// func test_bitcask() {
-// 	bc, err := bitcask.Open(".")
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// 	defer bc.Close()
+ func test_bitcask() {
+ 	bc, err := bitcask.Open(".")
+ 	if err != nil {
+ 		fmt.Println(err)
+ 		return
+ 	}
+ 	defer bc.Close()
 
-// 	for i := 0; i < 100; i++ {
-// 		s := fmt.Sprintf("key:%d", i)
-// 		_, err = bc.Put(s, []byte("Hello, world."))
-// 		if err != nil {
-// 			fmt.Println(err)
-// 			continue
-// 		}
-
+ 	for i := 0; i < 100; i++ {
+		s := fmt.Sprintf("key:%d", i)
+		b, err := bc.Get(s)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		fmt.Printf("%v\n", b)
+}
 // 		// if i % 2 == 0 {
 // 		//err = bc.Delete(s)
 // 		 if err != nil {
@@ -62,12 +63,13 @@ func test_file() {
 // 		}
 // 	}
 // }
-
+}
 func main() {
 	//test_bucket()
 	//test_keydir()
 	//test_bitcask()
-	test_file()
+	//test_file()
+	test_bitcask()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"
 	//fmt.Printf("%s\n", a["abc"])

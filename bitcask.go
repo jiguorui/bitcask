@@ -21,154 +21,85 @@ package bitcask
 import (
 	"strings"
 	//"fmt"
-	//"errors"
+	"errors"
 )
 
 type Bitcask struct {
-	bucket *File
-	keydir *KeyDir
+	files       []*File
+	active_file *File
 }
 
 // Open an existing Bitcask datastore.
 func Open(dir string) (*Bitcask, error) {
-	s := []string{dir, "001.ar"}
+	fnames := []string{"001.data", "002.data"}
 	sep := "/"
 	if strings.HasSuffix(dir, "/") {
 		sep = ""
 	}
-	path := strings.Join(s, sep)
 
-	bk, err := OpenFile(path, 1)
-	if err != nil {
-		return nil, err
+	files := make([]*File, 0)
+	for i := 0; i < len(fnames); i++ {
+		s := []string{dir, fnames[i]}
+		path := strings.Join(s, sep)
+
+		f, err := OpenFile(path, i+1)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, f)
 	}
 
-	// keydir, err := bk.Scan()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// keydir.DebugShow()
-
-	return &Bitcask{bk, nil}, nil
+	return &Bitcask{files, files[0]}, nil
 }
 
-// Local func
-// func (bc *Bitcask) writeRecord(key string, value []byte, ver int32) (uint32, uint32, error) {
-// 	var r *Record
-// 	var offset, total_sz uint32
-// 	var err error
-// 	var buf []byte
+func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
+	if bc == nil {
+		return int32(0), ErrInvalid
+	}
 
-// 	r = MakeRecord(key, value, ver)
+	return bc.active_file.Put(key, value)
+}
 
-// 	offset, err = bc.bucket.GetWriteOffset()
-// 	if err != nil {
-// 		goto FAIL
-// 	}
+// Now the code here is not good enough
+func (bc *Bitcask) Get(key string) ([]byte, error) {
+	if bc == nil {
+		return []byte(""), ErrInvalid
+	}
 
-// 	buf, err = r.Encode()
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-// 	_, err = bc.bucket.Write(buf)
-// 	if err != nil {
-// 		goto FAIL
-// 	}
+	c := make(chan int)
+	b := make([][]byte, 0)
+	cnt := len(bc.files)
 
-// 	total_sz = r.Header.Ksz + r.Header.Vsz + 24
+	var i int
+	for i = 0; i < cnt; i++ {
+		go func() {
 
-// 	return uint32(offset), uint32(total_sz), nil
-// FAIL:
-// 	offset = uint32(0)
-// 	total_sz = uint32(0)
-// 	return uint32(offset), uint32(total_sz), err
-// }
-
-// Store a key/value in a Bitcask datastore.
-// func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
-// 	if bc == nil {
-// 		return int32(0), ErrInvalid
-// 	}
-
-// 	// empty value means delete
-// 	to_delete := len(value) == 0
-
-// 	var oldver, ver int32
-// 	entry, ok, err := bc.keydir.Get(key)
-// 	if err != nil {
-// 		return int32(0), err
-// 	}
-// 	if ok {
-// 		oldver = entry.Ver
-// 	}
-// 	if oldver < 0 {
-// 		if to_delete {
-// 			return 0, errors.New("has been deleted.")
-// 		}
-// 		ver = 1 - oldver
-// 	} else {
-// 		ver = oldver + 1
-// 		if to_delete {
-// 			ver = 0 - ver
-// 		}
-// 	}
-
-// 	offset, total_sz, err := bc.writeRecord(key, value, ver)
-// 	if err != nil {
-// 		return int32(0), errors.New("write failed.")
-// 	}
-
-// 	// keydir
-// 	err = bc.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
-// 	if err != nil {
-// 		return int32(0), err
-// 	}
-
-// 	return int32(total_sz), nil
-// }
-
-// Get value by key
-// func (bc *Bitcask) Get(key string) ([]byte, error) {
-// 	if bc == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
-
-// 	entry, has, err := bc.keydir.Get(key)
-// 	if has {
-// 		if entry.Ver > 0 {
-// 			return bc.bucket.Read(entry.Offset, entry.Total_size)			
-// 		}
-// 	}
-// 	if err != nil {
-// 		return []byte(""), err
-// 	}
-// 	return []byte(""), errors.New("not found.")
-
-// }
-
-// // Delete data by a key
-// func (bc *Bitcask) Delete(key string) error {
-// 	if bc == nil {
-// 		return ErrInvalid
-// 	}
-
-// 	_, has, err := bc.keydir.Get(key)
-
-// 	//To delete, just set empty value
-// 	if has {
-// 		_, err := bc.Put(key, []byte(""))
-// 		return err
-// 	}
-
-// 	return err
-// }
+			b1, err := bc.files[i].Get(key)
+			if err == nil {
+				b = append(b, b1)
+			}
+			c <- 1
+		}()
+	}
+	for i = 0; i < cnt; i++ {
+		<-c
+	}
+	for i := 0; i < len(b); i++ {
+		if len(b[i]) > 0 {
+			return b[i], nil
+		}
+	}
+	return []byte(""), errors.New("get failed")
+}
 
 // Close a Bitcask
 func (bc *Bitcask) Close() {
 	if bc == nil {
 		return
 	}
-
-	bc.bucket.Close()
+	cnt := len(bc.files)
+	for i := 0; i < cnt; i++ {
+		bc.files[i].Close()
+	}
+	//bc.bucket.Close()
 }
