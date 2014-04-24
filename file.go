@@ -133,6 +133,20 @@ func (f *File) Merge(path string) error {
 	return nil
 }
 
+// helper api, get file size
+func (f *File) Size() (int32, error) {
+	if f == nil {
+		return 0, ErrInvalid
+	}
+
+	finfo, err := f.rfile.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	return int32(finfo.Size()), nil
+}
+
 // Close file
 func (f *File) Close() {
 	if f == nil {

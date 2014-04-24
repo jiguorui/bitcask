@@ -31,13 +31,14 @@ type Bitcask struct {
 
 // Open an existing Bitcask datastore.
 func Open(dir string) (*Bitcask, error) {
-	fnames := []string{"001.data", "002.data"}
+	fnames := []string{"001.data", "002.data", "003.data", "004.data", "005.data"}
 	sep := "/"
 	if strings.HasSuffix(dir, "/") {
 		sep = ""
 	}
 
 	files := make([]*File, 0)
+	var active_file *File
 	for i := 0; i < len(fnames); i++ {
 		s := []string{dir, fnames[i]}
 		path := strings.Join(s, sep)
@@ -47,9 +48,21 @@ func Open(dir string) (*Bitcask, error) {
 			return nil, err
 		}
 		files = append(files, f)
+
+		// find active file
+		sz, err := f.Size()
+		if err == nil && sz < 0xffff {
+			active_file = f
+			continue
+		}
 	}
 
-	return &Bitcask{files, files[0]}, nil
+	// check if has a active file
+	if active_file == nil {
+		return nil, errors.New("active file not found.")
+	}
+
+	return &Bitcask{files, active_file}, nil
 }
 
 func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
