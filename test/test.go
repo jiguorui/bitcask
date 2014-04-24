@@ -1,20 +1,22 @@
-// package main
+package main
 
-// import (
-// 	"fmt"
-// 	"github.com/jiguorui/bitcask"
-// )
+import (
+	"fmt"
+	"github.com/jiguorui/bitcask"
+)
 
-// func test_bucket() {
-// 	bucket, err := bitcask.NewBucket("001.ar", 1)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
+func test_file() {
+	f, err := bitcask.OpenFile("001.ar", 1)
+	if err != nil {
+		fmt.Println(err)
+	}
 
-// 	defer bucket.Close()
-
-// 	bucket.Merge("001.ar.data")
-// }
+	defer f.Close()
+	f.Put("abc", []byte("defghi"))
+	b, _ := f.Get("abc")
+	fmt.Printf("%v\n", b)
+	//bucket.Merge("001.ar.data")
+}
 
 // func test_keydir() {
 // 	kd := bitcask.NewKeyDir()
@@ -61,27 +63,27 @@
 // 	}
 // }
 
-// func main() {
-// 	//test_bucket()
-// 	//test_keydir()
-// 	test_bitcask()
-// 	test_bucket()
-// 	//a := make(map[string]string,100)
-// 	//a["abc"] = "ddd"
-// 	//fmt.Printf("%s\n", a["abc"])
-// 	//fmt.Printf("%s\n", a["abcd"])
-// 	// fmt.Printf("Hello, bitcast\n")
-// 	// bc, err := bitcask.Open(".")
-// 	// if err != nil {
-// 	// 	fmt.Println(err)
-// 	// 	return
-// 	// }
-// 	// defer bc.Close()
+func main() {
+	//test_bucket()
+	//test_keydir()
+	//test_bitcask()
+	test_file()
+	//a := make(map[string]string,100)
+	//a["abc"] = "ddd"
+	//fmt.Printf("%s\n", a["abc"])
+	//fmt.Printf("%s\n", a["abcd"])
+	// fmt.Printf("Hello, bitcast\n")
+	// bc, err := bitcask.Open(".")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+	// defer bc.Close()
 
-// 	// bc.Put("abc", []byte("defghijklmnopqrstuvwxyz"))
+	// bc.Put("abc", []byte("defghijklmnopqrstuvwxyz"))
 
-// 	// fmt.Printf("%d\n", bitcask)
-// }
+	// fmt.Printf("%d\n", bitcask)
+}
 
 // Copyright 2010 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -200,37 +202,37 @@
 // 	}
 // }
 
-package main
+// package main
 
-import (
-	"fmt"
-	"time"
-)
+// import (
+// 	"fmt"
+// 	"time"
+// )
 
-func run1() {
-	for i := 0; i < 10; i++ {
-		time.Sleep(time.Second)
-		fmt.Printf("run1 %d\n", i)
-	}
-}
+// func run1() {
+// 	for i := 0; i < 10; i++ {
+// 		time.Sleep(time.Second)
+// 		fmt.Printf("run1 %d\n", i)
+// 	}
+// }
 
-func run2() {
-	for i := 0; i < 15; i++ {
-		time.Sleep(time.Second)
-		fmt.Printf("run2 %d\n", i)
-	}
-}
+// func run2() {
+// 	for i := 0; i < 15; i++ {
+// 		time.Sleep(time.Second)
+// 		fmt.Printf("run2 %d\n", i)
+// 	}
+// }
 
-func main() {
-	c := make(chan int, 2)
-	go func() {
-		run1()
-		c <- 1
-	}()
-	go func() {
-		run2()
-		c <- 1
-	}()
-	<-c
-	<-c
-}
+// func main() {
+// 	c := make(chan int, 2)
+// 	go func() {
+// 		run1()
+// 		c <- 1
+// 	}()
+// 	go func() {
+// 		run2()
+// 		c <- 1
+// 	}()
+// 	<-c
+// 	<-c
+// }

@@ -27,16 +27,17 @@ import (
 	//"fmt"
 )
 
-type Bucket struct {
+type File struct {
 	path    string
 	file_id int
 	wfile   *os.File
 	rfile   *os.File
+	keydir  *KeyDir
 }
 
 var ErrInvalid = errors.New("invalid argument")
 
-func NewBucket(path string, id int) (*Bucket, error) {
+func OpenFile(path string, id int) (*File, error) {
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, errors.New("File is not exist.")
@@ -52,17 +53,103 @@ func NewBucket(path string, id int) (*Bucket, error) {
 		return nil, err
 	}
 
-	return &Bucket{path, id, wf, rf}, nil
+	f := &File{path, id, wf, rf, nil}
+	f.keydir, _ = f.scan()
+
+	return f, nil
 }
 
-// Write bytes to file
-func (bucket *Bucket) Write(buf []byte) (int32, error) {
-	if bucket == nil {
+// Get record bytes by key
+func (f *File) Get(key string) ([]byte, error) {
+	if f == nil {
+		return []byte(""), ErrInvalid
+	}
+
+	entry, has, err := f.keydir.Get(key)
+	if has {
+		if entry.Ver > 0 {
+			return f.read(entry.Offset, entry.Total_size)			
+		}
+	}
+	if err != nil {
+		return []byte(""), err
+	}
+	return []byte(""), errors.New("not found.")
+}
+
+// Put key/value to file and update keydir
+func (f *File) Put(key string, value []byte) (int32, error) {
+	if f == nil {
+		return int32(0), ErrInvalid
+	}
+
+	var oldver, ver int32
+	entry, ok, err := f.keydir.Get(key)
+	if err != nil {
+		return int32(0), err
+	}
+	if ok {
+		oldver = entry.Ver
+	}
+	if oldver < 0 {
+		ver = 1 - oldver
+	} else {
+		ver = oldver + 1
+	}
+
+	offset, total_sz, err := f.writeRecord(key, value, ver)
+	if err != nil {
+		return int32(0), errors.New("write failed.")
+	}
+
+	// keydir
+	err = f.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
+	if err != nil {
+		return int32(0), err
+	}
+
+	return int32(total_sz), nil
+}
+
+// Merge the file
+func (f *File) Merge(path string) error {
+
+	mf, err := os.OpenFile(path, os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer mf.Close()
+
+	for _, entry := range f.keydir.GetMap() {
+		if entry.Ver > 0 {
+			buf, err := f.read(entry.Offset, entry.Total_size)
+			if err != nil {
+				return err
+			}
+			mf.Write(buf)
+		}
+	}
+	
+	return nil
+}
+
+// Close file
+func (f *File) Close() {
+	if f == nil {
+		return
+	}
+	f.wfile.Close()
+	f.rfile.Close()
+}
+
+// local func, write
+func (f *File) write(buf []byte) (int32, error) {
+	if f == nil {
 		return 0, ErrInvalid
 	}
 
 	buflen := len(buf)
-	n, err := bucket.wfile.Write(buf)
+	n, err := f.wfile.Write(buf)
 	if err != nil {
 		return int32(n), err
 	}
@@ -73,18 +160,18 @@ func (bucket *Bucket) Write(buf []byte) (int32, error) {
 	return int32(n), nil
 }
 
-// Read bytes form file
-func (bucket *Bucket) Read(offset, total_sz uint32) ([]byte, error) {
-	if bucket == nil {
+// local func, read
+func (f *File) read(offset, total_sz uint32) ([]byte, error) {
+	if f == nil {
 		return []byte(""), ErrInvalid
 	}
 
 	buf := make([]byte, total_sz)
-	o, err := bucket.rfile.Seek(int64(offset), os.SEEK_SET)
+	o, err := f.rfile.Seek(int64(offset), os.SEEK_SET)
 	if err != nil || uint32(o) != offset {
 		return []byte(""), errors.New("Can't seek the offset.")
 	}
-	n, err := bucket.rfile.Read(buf)
+	n, err := f.rfile.Read(buf)
 	if err != nil {
 		return buf, err
 	}
@@ -97,12 +184,12 @@ func (bucket *Bucket) Read(offset, total_sz uint32) ([]byte, error) {
 }
 
 // Get current offset for writting
-func (bucket *Bucket) GetWriteOffset() (uint32, error) {
-	if bucket == nil {
+func (f *File) getWriteOffset() (uint32, error) {
+	if f == nil {
 		return 0, ErrInvalid
 	}
 
-	offset, err := bucket.wfile.Seek(0, os.SEEK_CUR)
+	offset, err := f.wfile.Seek(0, os.SEEK_CUR)
 	if err != nil {
 		return 0, err
 	}
@@ -112,9 +199,9 @@ func (bucket *Bucket) GetWriteOffset() (uint32, error) {
 // before call, move the file cursor to right position
 // return nil means at the file end.
 // any error occur, panic!
-func (bucket *Bucket) readRecordHeader() *RecordHeader {
+func (f *File) readRecordHeader() *RecordHeader {
 	buf := make([]byte, 24)
-	n, err := bucket.rfile.Read(buf)
+	n, err := f.rfile.Read(buf)
 	if err == io.EOF && n == 0 {
 		return nil
 	}
@@ -135,8 +222,8 @@ func (bucket *Bucket) readRecordHeader() *RecordHeader {
 
 // move read cursor by offset from current position
 // panic or success.
-func (bucket *Bucket) move(offset uint32) int32 {
-	offset_, err := bucket.rfile.Seek(int64(offset), os.SEEK_CUR)
+func (f *File) move(offset uint32) int32 {
+	offset_, err := f.rfile.Seek(int64(offset), os.SEEK_CUR)
 	if err != nil {
 		panic("Seek file failed.")
 	}
@@ -145,31 +232,62 @@ func (bucket *Bucket) move(offset uint32) int32 {
 
 // set read cursor position
 // panic or success
-func (bucket *Bucket) position(pos uint32) uint32 {
-	offset, err := bucket.rfile.Seek(int64(pos), os.SEEK_SET)
+func (f *File) position(pos uint32) uint32 {
+	offset, err := f.rfile.Seek(int64(pos), os.SEEK_SET)
 	if err != nil {
 		panic(err.Error())
 	}
 	return uint32(offset)
 }
 
-func (bucket *Bucket) Scan() (*KeyDir, error) {
-	if bucket == nil {
+func (f *File) writeRecord(key string, value []byte, ver int32) (uint32, uint32, error) {
+	var r *Record
+	var offset, total_sz uint32
+	var err error
+	var buf []byte
+
+	r = MakeRecord(key, value, ver)
+
+	offset, err = f.getWriteOffset()
+	if err != nil {
+		goto FAIL
+	}
+
+	buf, err = r.Encode()
+	if err != nil {
+		goto FAIL
+	}
+	_, err = f.write(buf)
+	if err != nil {
+		goto FAIL
+	}
+
+	total_sz = r.Header.Ksz + r.Header.Vsz + 24
+
+	return uint32(offset), uint32(total_sz), nil
+FAIL:
+	offset = uint32(0)
+	total_sz = uint32(0)
+	return uint32(offset), uint32(total_sz), err
+}
+
+func (f *File) scan() (*KeyDir, error) {
+	if f == nil {
 		return nil, ErrInvalid
 	}
 
-	bucket.position(0)
+	f.position(0)
 
 	keydir := NewKeyDir()
 	for {
 		var oldver int32
-		rh := bucket.readRecordHeader()
+		rh := f.readRecordHeader()
 		if rh == nil {
 			break
 		}
 
 		keybuf := make([]byte, rh.Ksz)
-		_, err := bucket.rfile.Read(keybuf)
+		_, err := f.rfile.Read(keybuf)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +296,7 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 			oldver = entry.Ver
 		}
 
-		offset := bucket.move(rh.Vsz)
+		offset := f.move(rh.Vsz)
 		// check if version is last
 		if math.Abs(float64(rh.Ver)) > math.Abs(float64(oldver)) {
 			total_sz, _ := rh.GetTotalSize()
@@ -189,36 +307,3 @@ func (bucket *Bucket) Scan() (*KeyDir, error) {
 	return keydir, nil
 }
 
-func (bucket *Bucket) Merge(path string) error {
-	keydir, err := bucket.Scan()
-	if err != nil {
-		return err
-	}
-
-	mf, err := os.OpenFile(path, os.O_CREATE, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer mf.Close()
-
-	for _, entry := range keydir.GetMap() {
-		if entry.Ver > 0 {
-			buf, err := bucket.Read(entry.Offset, entry.Total_size)
-			if err != nil {
-				return err
-			}
-			mf.Write(buf)
-		}
-	}
-	
-	return nil
-}
-
-// Close file
-func (bucket *Bucket) Close() {
-	if bucket == nil {
-		return
-	}
-	bucket.wfile.Close()
-	bucket.rfile.Close()
-}
