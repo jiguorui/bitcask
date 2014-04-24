@@ -70,7 +70,12 @@ func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
 		return int32(0), ErrInvalid
 	}
 
-	return bc.active_file.Put(key, value)
+	v, err := bc.getVersion(key)
+	if err != nil {
+		return 0, err
+	}
+
+	return bc.active_file.Put(key, value, v)
 }
 
 // Now the code here is not good enough
@@ -105,6 +110,30 @@ func (bc *Bitcask) Get(key string) ([]byte, error) {
 	return []byte(""), errors.New("get failed")
 }
 
+func (bc *Bitcask) getVersion(key string) (int32, error) {
+	cnt := len(bc.files)
+	c := make(chan int32)
+
+	var version int32
+
+	var i int
+	for i = 0; i < cnt; i++ {
+		go func() {
+			v, _ := bc.files[i].GetVersion(key)
+			c <- v
+		}()
+	}
+	for i = 0; i < cnt; i++ {
+		v := <-c
+		if version < v {
+			version = v
+		}
+	}
+
+	return version, nil
+
+}
+
 // Close a Bitcask
 func (bc *Bitcask) Close() {
 	if bc == nil {
@@ -114,5 +143,4 @@ func (bc *Bitcask) Close() {
 	for i := 0; i < cnt; i++ {
 		bc.files[i].Close()
 	}
-	//bc.bucket.Close()
 }

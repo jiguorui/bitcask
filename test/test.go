@@ -12,7 +12,7 @@ func test_file() {
 	}
 
 	defer f.Close()
-	f.Put("abc", []byte("defghi"))
+	f.Put("abc", []byte("defghi"), 1)
 	b, _ := f.Get("abc")
 	fmt.Printf("%v\n", b)
 	//bucket.Merge("001.ar.data")

@@ -78,24 +78,24 @@ func (f *File) Get(key string) ([]byte, error) {
 }
 
 // Put key/value to file and update keydir
-func (f *File) Put(key string, value []byte) (int32, error) {
+func (f *File) Put(key string, value []byte, ver int32) (int32, error) {
 	if f == nil {
 		return int32(0), ErrInvalid
 	}
 
-	var oldver, ver int32
-	entry, ok, err := f.keydir.Get(key)
-	if err != nil {
-		return int32(0), err
-	}
-	if ok {
-		oldver = entry.Ver
-	}
-	if oldver < 0 {
-		ver = 1 - oldver
-	} else {
-		ver = oldver + 1
-	}
+	// var oldver, ver int32
+	// entry, ok, err := f.keydir.Get(key)
+	// if err != nil {
+	// 	return int32(0), err
+	// }
+	// if ok {
+	// 	oldver = entry.Ver
+	// }
+	// if oldver < 0 {
+	// 	ver = 1 - oldver
+	// } else {
+	// 	ver = oldver + 1
+	// }
 
 	offset, total_sz, err := f.writeRecord(key, value, ver)
 	if err != nil {
@@ -109,6 +109,22 @@ func (f *File) Put(key string, value []byte) (int32, error) {
 	}
 
 	return int32(total_sz), nil
+}
+
+// Get ver if exist
+func (f *File) GetVersion(key string) (int32, error) {
+	if f == nil {
+		return 0, ErrInvalid
+	}
+
+	entry, has, err := f.keydir.Get(key)
+	if has {
+		return entry.Ver, nil
+	}
+	if err != nil {
+		return int32(0), err
+	}
+	return 0, nil
 }
 
 // Merge the file
