@@ -117,6 +117,25 @@ func (bc *Bitcask) Get(key string) ([]byte, error) {
 	return []byte(""), errors.New("get failed")
 }
 
+func (bc *Bitcask) Delete(key string) (error) {
+	if bc == nil {
+		return ErrInvalid
+	}
+
+	v, err := bc.getVersion(key)
+	if err != nil {
+		return err
+	}
+
+	if v < 0 {
+		return errors.New("Has been deleted.")
+	}
+
+	v = -1 - v
+	_, err = bc.active_file.Put(key, []byte("Tombstone"), v)
+	return err
+}
+
 func (bc *Bitcask) getVersion(key string) (int32, error) {
 	cnt := len(bc.files)
 	c := make(chan int32)

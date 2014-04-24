@@ -37,12 +37,12 @@ func test_file() {
 
  	for i := 0; i < 1000; i++ {
 		s := fmt.Sprintf("key:%d", i)
-		b, err := bc.Put(s, []byte("dkjkjksfjkk"))
+		err := bc.Delete(s)//, []byte("dkjkjksfjkk"))
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Printf("%v\n", b)
+		//fmt.Printf("%v\n", b)
 }
 // 		// if i % 2 == 0 {
 // 		//err = bc.Delete(s)
