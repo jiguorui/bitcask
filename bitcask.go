@@ -22,6 +22,7 @@ import (
 	"strings"
 	//"fmt"
 	"errors"
+	"math"
 )
 
 type Bitcask struct {
@@ -31,7 +32,7 @@ type Bitcask struct {
 
 // Open an existing Bitcask datastore.
 func Open(dir string) (*Bitcask, error) {
-	fnames := []string{"001.data", "002.data", "003.data", "004.data", "005.data"}
+	fnames := []string{"002.data", "003.data", "004.data"}
 	sep := "/"
 	if strings.HasSuffix(dir, "/") {
 		sep = ""
@@ -73,6 +74,12 @@ func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
 	v, err := bc.getVersion(key)
 	if err != nil {
 		return 0, err
+	}
+
+	if v < 0 {
+		v = 1 - v
+	} else {
+		v = v + 1
 	}
 
 	return bc.active_file.Put(key, value, v)
@@ -125,13 +132,12 @@ func (bc *Bitcask) getVersion(key string) (int32, error) {
 	}
 	for i = 0; i < cnt; i++ {
 		v := <-c
-		if version < v {
+		if math.Abs(float64(version)) < math.Abs(float64(v)) {
 			version = v
 		}
 	}
 
 	return version, nil
-
 }
 
 // Close a Bitcask

@@ -35,9 +35,9 @@ func test_file() {
  	}
  	defer bc.Close()
 
- 	for i := 0; i < 100; i++ {
+ 	for i := 0; i < 1000; i++ {
 		s := fmt.Sprintf("key:%d", i)
-		b, err := bc.Get(s)
+		b, err := bc.Put(s, []byte("dkjkjksfjkk"))
 		if err != nil {
 			fmt.Println(err)
 			continue
