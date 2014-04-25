@@ -23,6 +23,7 @@ import (
 	"errors"
 	"hash/crc32"
 	"os"
+	"math"
 	//"fmt"
 )
 
@@ -127,7 +128,12 @@ func (f *File) Read(offset, size uint32) (key string, value []byte, err error) {
 		return emptyKey, emptyValue, errors.New("read not complete.")
 	}
 
-	//crc := binary.LittleEndian.Uint32(buf[0:4])
+	crc := binary.LittleEndian.Uint32(buf[0:4])
+	crc_ := crc32.ChecksumIEEE(buf[4:])
+	if crc != crc_ {
+		return emptyKey, emptyValue, errors.New("crc check failed.") 
+	}
+
 	//tstamp := binary.LittleEndian.Uint32(buf[4:8])
 	ksz := binary.LittleEndian.Uint32(buf[8:12])
 	//vsz := binary.LittleEndian.Uint32(buf[12:16])
@@ -136,261 +142,61 @@ func (f *File) Read(offset, size uint32) (key string, value []byte, err error) {
 
 	key = string(buf[recordHeaderSize : int(ksz)+recordHeaderSize])
 	value = buf[int(ksz)+recordHeaderSize:]
-	
+
 	return key, value, nil
 }
 
-// func (f *File) Position(pos uint32) uint32 {
-// 	if f == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
+func (f *File) Scan(keydir *KeyDir) error {
+	if f == nil || keydir == nil {
+		return ErrInvalid
+	}
 
-// 	offset, err := f.rfile.Seek(int64(pos), os.SEEK_SET)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	return uint32(offset)
-// }
+	_, err := f.rfile.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return err
+	}
 
-// func (f *File) Move(offset uint32) int32 {
-// 	if f == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
+	for {
+		buf := make([]byte, recordHeaderSize)
+		n, err := f.rfile.Read(buf)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			break
+		}
 
-// 	offset_, err := f.rfile.Seek(int64(offset), os.SEEK_CUR)
-// 	if err != nil {
-// 		panic("Seek file failed.")
-// 	}
-// 	return int32(offset_)
-// }
+		//crc := binary.LittleEndian.Uint32(buf[0:4])
+		tstamp := binary.LittleEndian.Uint32(buf[4:8])
+		ksz := binary.LittleEndian.Uint32(buf[8:12])
+		vsz := binary.LittleEndian.Uint32(buf[12:16])
+		//flags := binary.LittleEndian.Uint32(buf[16:20])
+		ver := binary.LittleEndian.Uint32(buf[20:24])
 
-// func (f *File) Read(buf []byte) (int, error) {
-// 	if f == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
+		keybuf := make([]byte, ksz)
+		n, err = f.rfile.Read(keybuf)
+		if err != nil {
+			return err
+		}
 
-// 	return f.rfile.Read(buf)
-// }
+		var oldver int32
+		key := string(keybuf)
+		entry, ok, err := keydir.Get(key)
+		if ok {
+			oldver = entry.Version
+		}
+		offset_, err := f.rfile.Seek(int64(vsz), os.SEEK_CUR)
 
-// func (f *File) ReadRecordHeader() *RecordHeader {
-// 	buf := make([]byte, 24)
-// 	n, err := f.rfile.Read(buf)
-// 	if err == io.EOF && n == 0 {
-// 		return nil
-// 	}
-// 	// if any error, panic!!!
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	if n < 24 {
-// 		panic("Read Header error.")
-// 	}
+		if math.Abs(float64(ver)) > math.Abs(float64(oldver)) {
+			totalSz := ksz + vsz + uint32(recordHeaderSize)
+			offset := uint32(offset_) - totalSz
+			keydir.Put(key, uint32(f.file_id), offset, totalSz, int32(tstamp), int32(ver))
+		}
+	}
 
-// 	rh, err := DecodeRecordHeader(buf)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	return rh
-// }
+	return nil
+}
 
-// func (f *File) Write(buf []byte) (int32, error) {
-// 	if f == nil {
-// 		return 0, ErrInvalid
-// 	}
-
-// 	buflen := len(buf)
-// 	n, err := f.wfile.Write(buf)
-// 	if err != nil {
-// 		return int32(n), err
-// 	}
-// 	//TODO: after write failed, file is dirty, how to do here ?
-// 	if n < buflen {
-// 		return int32(n), errors.New("Write op is not complete.")
-// 	}
-// 	return int32(n), nil
-// }
-
-// func (f *File) WriteRecord(key string, value []byte, ver int32) (uint32, uint32, error) {
-// 	var r *Record
-// 	var offset, total_sz uint32
-// 	var err error
-// 	var buf []byte
-
-// 	r = MakeRecord(key, value, ver)
-
-// 	offset, err = f.getWriteOffset()
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-
-// 	buf, err = r.Encode()
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-// 	_, err = f.Write(buf)
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-
-// 	total_sz = r.Header.Ksz + r.Header.Vsz + 24
-
-// 	return uint32(offset), uint32(total_sz), nil
-// FAIL:
-// 	offset = uint32(0)
-// 	total_sz = uint32(0)
-// 	return uint32(offset), uint32(total_sz), err
-// }
-
-// func (f *File) Scan(keydir *KeyDir) error {
-// 	if f == nil {
-// 		return nil, ErrInvalid
-// 	}
-
-// 	f.Position(0)
-
-// 	for {
-// 		var oldver int32
-// 		rh := f.ReadRecordHeader()
-// 		if rh == nil {
-// 			break
-// 		}
-
-// 		keybuf := make([]byte, rh.Ksz)
-// 		_, err := f.rfile.Read(keybuf)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		entry, has, _ := keydir.Get(string(keybuf))
-// 		if has {
-// 			oldver = entry.Ver
-// 		}
-
-// 		offset := f.Move(rh.Vsz)
-// 		// check if version is last
-// 		if math.Abs(float64(rh.Ver)) > math.Abs(float64(oldver)) {
-// 			total_sz, _ := rh.GetTotalSize()
-// 			keydir.Set(string(keybuf), f.file_id, uint32(offset)-uint32(total_sz), uint32(total_sz), 0, rh.Ver)
-// 		}
-
-// 	}
-// 	return nil
-// }
-
-// // Get record bytes by key
-// func (f *File) Get(key string) ([]byte, error) {
-// 	if f == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
-
-// 	entry, has, err := f.keydir.Get(key)
-// 	if has {
-// 		if entry.Ver > 0 {
-// 			return f.read(entry.Offset, entry.Total_size)
-// 		}
-// 	}
-// 	if err != nil {
-// 		return []byte(""), err
-// 	}
-// 	return []byte(""), errors.New("not found.")
-// }
-
-// // Put key/value to file and update keydir
-// func (f *File) Put(key string, value []byte, ver int32) (int32, error) {
-// 	if f == nil {
-// 		return int32(0), ErrInvalid
-// 	}
-
-// 	// var oldver, ver int32
-// 	// entry, ok, err := f.keydir.Get(key)
-// 	// if err != nil {
-// 	// 	return int32(0), err
-// 	// }
-// 	// if ok {
-// 	// 	oldver = entry.Ver
-// 	// }
-// 	// if oldver < 0 {
-// 	// 	ver = 1 - oldver
-// 	// } else {
-// 	// 	ver = oldver + 1
-// 	// }
-
-// 	offset, total_sz, err := f.writeRecord(key, value, ver)
-// 	if err != nil {
-// 		return int32(0), errors.New("write failed.")
-// 	}
-
-// 	// keydir
-// 	err = f.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
-// 	if err != nil {
-// 		return int32(0), err
-// 	}
-
-// 	return int32(total_sz), nil
-// }
-
-// // Get ver if exist
-// func (f *File) GetVersion(key string) (int32, error) {
-// 	if f == nil {
-// 		return 0, ErrInvalid
-// 	}
-
-// 	entry, has, err := f.keydir.Get(key)
-// 	if has {
-// 		return entry.Ver, nil
-// 	}
-// 	if err != nil {
-// 		return int32(0), err
-// 	}
-// 	return 0, nil
-// }
-
-// func (f *File) GetHint(key string) (*KeyEntry, error) {
-// 	if f == nil {
-// 		return nil, ErrInvalid
-// 	}
-
-// 	entry, has, err := f.keydir.Get(key)
-// 	if has {
-// 		return &entry, nil
-// 	}
-// 	return nil, err
-// }
-
-// // Merge the file
-// func (f *File) Merge(path string) error {
-
-// 	mf, err := os.OpenFile(path, os.O_CREATE, os.ModePerm)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer mf.Close()
-
-// 	for _, entry := range f.keydir.GetMap() {
-// 		if entry.Ver > 0 {
-// 			buf, err := f.read(entry.Offset, entry.Total_size)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			mf.Write(buf)
-// 		}
-// 	}
-
-// 	return nil
-// }
-
-// // helper api, get file size
-// func (f *File) Size() (int32, error) {
-// 	if f == nil {
-// 		return 0, ErrInvalid
-// 	}
-
-// 	finfo, err := f.rfile.Stat()
-// 	if err != nil {
-// 		return 0, err
-// 	}
-
-// 	return int32(finfo.Size()), nil
-// }
 
 // Close file
 func (f *File) Close() {
@@ -401,167 +207,3 @@ func (f *File) Close() {
 	f.rfile.Close()
 }
 
-// // local func, write
-// func (f *File) write(buf []byte) (int32, error) {
-// 	if f == nil {
-// 		return 0, ErrInvalid
-// 	}
-
-// 	buflen := len(buf)
-// 	n, err := f.wfile.Write(buf)
-// 	if err != nil {
-// 		return int32(n), err
-// 	}
-// 	//TODO: after write failed, file is dirty, how to do here ?
-// 	if n < buflen {
-// 		return int32(n), errors.New("Write op is not complete.")
-// 	}
-// 	return int32(n), nil
-// }
-
-// // local func, read
-// func (f *File) read(offset, total_sz uint32) ([]byte, error) {
-// 	if f == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
-
-// 	buf := make([]byte, total_sz)
-// 	o, err := f.rfile.Seek(int64(offset), os.SEEK_SET)
-// 	if err != nil || uint32(o) != offset {
-// 		return []byte(""), errors.New("Can't seek the offset.")
-// 	}
-// 	n, err := f.rfile.Read(buf)
-// 	if err != nil {
-// 		return buf, err
-// 	}
-
-// 	if uint32(n) < total_sz {
-// 		return buf, errors.New("Not enough bytes to read.")
-// 	}
-
-// 	return buf, nil
-// }
-
-// // Get current offset for writting
-// func (f *File) getWriteOffset() (uint32, error) {
-// 	if f == nil {
-// 		return 0, ErrInvalid
-// 	}
-
-// 	offset, err := f.wfile.Seek(0, os.SEEK_CUR)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	return uint32(offset), nil
-// }
-
-// // before call, move the file cursor to right position
-// // return nil means at the file end.
-// // any error occur, panic!
-// func (f *File) readRecordHeader() *RecordHeader {
-// 	buf := make([]byte, 24)
-// 	n, err := f.rfile.Read(buf)
-// 	if err == io.EOF && n == 0 {
-// 		return nil
-// 	}
-// 	// if any error, panic!!!
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	if n < 24 {
-// 		panic("Read Header error.")
-// 	}
-
-// 	rh, err := DecodeRecordHeader(buf)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	return rh
-// }
-
-// // move read cursor by offset from current position
-// // panic or success.
-// func (f *File) move(offset uint32) int32 {
-// 	offset_, err := f.rfile.Seek(int64(offset), os.SEEK_CUR)
-// 	if err != nil {
-// 		panic("Seek file failed.")
-// 	}
-// 	return int32(offset_)
-// }
-
-// // set read cursor position
-// // panic or success
-// func (f *File) position(pos uint32) uint32 {
-// 	offset, err := f.rfile.Seek(int64(pos), os.SEEK_SET)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	return uint32(offset)
-// }
-
-// func (f *File) writeRecord(key string, value []byte, ver int32) (uint32, uint32, error) {
-// 	var r *Record
-// 	var offset, total_sz uint32
-// 	var err error
-// 	var buf []byte
-
-// 	r = MakeRecord(key, value, ver)
-
-// 	offset, err = f.getWriteOffset()
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-
-// 	buf, err = r.Encode()
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-// 	_, err = f.write(buf)
-// 	if err != nil {
-// 		goto FAIL
-// 	}
-
-// 	total_sz = r.Header.Ksz + r.Header.Vsz + 24
-
-// 	return uint32(offset), uint32(total_sz), nil
-// FAIL:
-// 	offset = uint32(0)
-// 	total_sz = uint32(0)
-// 	return uint32(offset), uint32(total_sz), err
-// }
-
-// func (f *File) scan() (*KeyDir, error) {
-// 	if f == nil {
-// 		return nil, ErrInvalid
-// 	}
-
-// 	f.position(0)
-
-// 	keydir := NewKeyDir()
-// 	for {
-// 		var oldver int32
-// 		rh := f.readRecordHeader()
-// 		if rh == nil {
-// 			break
-// 		}
-
-// 		keybuf := make([]byte, rh.Ksz)
-// 		_, err := f.rfile.Read(keybuf)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		entry, has, _ := keydir.Get(string(keybuf))
-// 		if has {
-// 			oldver = entry.Ver
-// 		}
-
-// 		offset := f.move(rh.Vsz)
-// 		// check if version is last
-// 		if math.Abs(float64(rh.Ver)) > math.Abs(float64(oldver)) {
-// 			total_sz, _ := rh.GetTotalSize()
-// 			keydir.Set(string(keybuf), uint32(offset)-uint32(total_sz), uint32(total_sz), 0, rh.Ver)
-// 		}
-
-// 	}
-// 	return keydir, nil
-// }

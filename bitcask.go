@@ -19,200 +19,103 @@
 package bitcask
 
 import (
-	//"strings"
+	"strings"
 	//"fmt"
-	//"errors"
+	"errors"
 	//"math"
 )
 
 type Bitcask struct {
 	files       []*File
-	active_file *File
-	keydir *KeyDir
+	active_fid int
+	keydir      *KeyDir
 }
 
-// // Open an existing Bitcask datastore.
-// func Open(dir string) (*Bitcask, error) {
-// 	fnames := []string{"002.data", "003.data", "004.data"}
-// 	sep := "/"
-// 	if strings.HasSuffix(dir, "/") {
-// 		sep = ""
-// 	}
+// Open an existing Bitcask datastore.
+func Open(dir string) (*Bitcask, error) {
+	fnames := []string{"002.data", "003.data", "004.data"}
+	sep := "/"
+	if strings.HasSuffix(dir, "/") {
+		sep = ""
+	}
 
-// 	files := make([]*File, 0)
-// 	var active_file *File
-// 	for i := 0; i < len(fnames); i++ {
-// 		s := []string{dir, fnames[i]}
-// 		path := strings.Join(s, sep)
+	var active_fid int
+	files := make([]*File, 0)
 
-// 		f, err := OpenFile(path, i+1)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		files = append(files, f)
+	for i := 0; i < len(fnames); i++ {
+		s := []string{dir, fnames[i]}
+		path := strings.Join(s, sep)
 
-// 		// find active file
-// 		sz, err := f.Size()
-// 		if err == nil && sz < 0xffff {
-// 			active_file = f
-// 			continue
-// 		}
-// 	}
+		f, err := OpenFile(path, i)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, f)
 
-// 	// check if has a active file
-// 	if active_file == nil {
-// 		return nil, errors.New("active file not found.")
-// 	}
+		// find active file
+		//sz, err := f.Size()
+		//if err == nil && sz < 0xffff {
+		active_fid = 0
+		//	continue
+		//}
+	}
 
-// 	keydir := NewKeyDir()
-// 	for i := 0; i < len(files); i++ {
-// 		files[i].Scan(keydir)
-// 	}
+	keydir := NewKeyDir()
+	for i := 0; i < len(files); i++ {
+		files[i].Scan(keydir)
+	}
 
-// 	return &Bitcask{files, active_file}, nil
-// }
+	return &Bitcask{files, active_fid, keydir}, nil
+}
 
-// func (bc *Bitcask) Put(key string, value []byte) (int32, error) {
-// 	if bc == nil {
-// 		return int32(0), ErrInvalid
-// 	}
+func (bc *Bitcask) Put(key string, value []byte) (int, error) {
+	if bc == nil {
+		return 0, ErrInvalid
+	}
+	var oldver int32 = 0
+	entry, ok, err := bc.keydir.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	if ok {
+		if entry.Version < 0 {
+			oldver = (0 - entry.Version)
+		} else {
+			oldver = entry.Version
+		}
+	}
 
-// 	var oldver, ver int32
-// 	entry, ok, err := f.keydir.Get(key)
-// 	if err != nil {
-// 		return int32(0), err
-// 	}
-// 	if ok {
-// 		oldver = entry.Ver
-// 	}
-// 	if oldver < 0 {
-// 		ver = 1 - oldver
-// 	} else {
-// 		ver = oldver + 1
-// 	}
+	offset, size, err := bc.files[bc.active_fid].Write(key, value, oldver + 1)
+	if err != nil {
+		return 0, err
+	}
 
-// 	offset, total_sz, err := f.WriteRecord(key, value, ver)
-// 	if err != nil {
-// 		return int32(0), errors.New("write failed.")
-// 	}
+	_, err = bc.keydir.Put(key, uint32(bc.active_fid), offset, size, 0, oldver + 1)
+	return int(size), err
+}
 
-// 	// keydir
-// 	err = f.keydir.Set(key, uint32(offset), uint32(total_sz), int32(0), int32(ver))
-// 	if err != nil {
-// 		return int32(0), err
-// 	}
+func (bc *Bitcask) Get(key string) ([]byte, error) {
+	if bc == nil {
+		return emptyValue, ErrInvalid
+	}
 
-// 	return int32(total_sz), nil
-// }
+	entry, ok, err := bc.keydir.Get(key)
+	if err != nil {
+		return emptyValue, err
+	}
+	if ok {
+		if entry.Version < 0 {
+			return emptyValue, errors.New("be deleted")
+		}
+		_, value, err := bc.files[entry.FileId].Read(entry.Offset, entry.TotalSize)
+		if err != nil {
+			return emptyValue, err
+		}
 
-// // Now the code here is not good enough
-// func (bc *Bitcask) Get(key string) ([]byte, error) {
-// 	if bc == nil {
-// 		return []byte(""), ErrInvalid
-// 	}
-
-
-// 	// c := make(chan int)
-// 	// b := make([][]byte, 0)
-// 	// cnt := len(bc.files)
-
-// 	// var i int
-// 	// for i = 0; i < cnt; i++ {
-// 	// 	go func() {
-
-// 	// 		b1, err := bc.files[i].Get(key)
-// 	// 		if err == nil {
-// 	// 			b = append(b, b1)
-// 	// 		}
-// 	// 		c <- 1
-// 	// 	}()
-// 	// }
-// 	// for i = 0; i < cnt; i++ {
-// 	// 	<-c
-// 	// }
-// 	// for i := 0; i < len(b); i++ {
-// 	// 	if len(b[i]) > 0 {
-// 	// 		return b[i], nil
-// 	// 	}
-// 	// }
-// 	// return []byte(""), errors.New("get failed")
-// }
-
-// func (bc *Bitcask) Delete(key string) (error) {
-// 	if bc == nil {
-// 		return ErrInvalid
-// 	}
-
-// 	v, err := bc.getVersion(key)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if v < 0 {
-// 		return errors.New("Has been deleted.")
-// 	}
-
-// 	v = -1 - v
-// 	_, err = bc.active_file.Put(key, []byte("Tombstone"), v)
-// 	return err
-// }
-
-// func (bc *Bitcask) getVersion(key string) (int32, error) {
-// 	cnt := len(bc.files)
-// 	c := make(chan int32)
-
-// 	var version int32
-
-// 	var i int
-// 	for i = 0; i < cnt; i++ {
-// 		go func() {
-// 			v, _ := bc.files[i].GetVersion(key)
-// 			c <- v
-// 		}()
-// 	}
-// 	for i = 0; i < cnt; i++ {
-// 		v := <-c
-// 		if math.Abs(float64(version)) < math.Abs(float64(v)) {
-// 			version = v
-// 		}
-// 	}
-
-// 	return version, nil
-// }
-
-// func (bc *Bitcask) getHint(key string) (int, *KeyEntry, error) {
-// 	cnt := len(bc.files)
-// 	c := make(chan int)
-// 	hints := make([]*KeyEntry, 0)
-
-// 	var i int
-// 	for i = 0; i < cnt; i++ {
-// 		go func() {
-// 			hint, _ := bc.files[i].GetHint(key)
-// 			hints = append(hints, hint)
-// 			c <- 1
-// 		}()
-// 	}
-// 	for i = 0; i < cnt; i++ {
-// 		<-c
-// 	}
-
-// 	var version int32
-// 	var fid int
-// 	for i = 0; i < cnt; i++ {
-// 		if hints[i] != nil {
-// 			if math.Abs(float64(version)) < math.Abs(hints[i].Ver) {
-// 				version = hints[i].Ver
-// 				fid = i + 1
-// 			}
-// 		}
-// 	}
-// 	if fid > 0 {
-// 		return fid - 1, hints[fid-1], nil
-// 	}
-// 	return 0, nil, errors.New("not found")
-
-// }
+		return value, nil
+	}
+	return emptyValue, errors.New("not found")
+}
 
 // Close a Bitcask
 func (bc *Bitcask) Close() {

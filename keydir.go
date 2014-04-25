@@ -45,25 +45,6 @@ func (dir *KeyDir) Put(key string, fileId, offset, totalSize uint32, tstamp, ver
 		return 0, ErrInvalid
 	}
 
-	// var oldver int32
-	// entry1, ok := dir.map_[key]
-	// if ok {
-	// 	oldver = entry1.Version
-	// }
-
-	// if oldver < 0 {
-	// 	if version < 0 {
-	// 		return 0, errors.New("Has been deleted.")
-	// 	}
-	// 	version = 1 - oldver
-	// } else {
-	// 	if version < 0 {
-	// 		version = -1 - oldver
-	// 	} else {
-	// 		version = oldver + 1
-	// 	}
-	// }
-
 	entry := KeyEntry{fileId, offset, totalSize, tstamp, version}
 	dir.map_[key] = entry
 
