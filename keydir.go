@@ -20,37 +20,54 @@ package bitcask
 
 import (
 	//"errors"
-	"fmt"
+//	"fmt"
 )
 
 type KeyEntry struct {
-	//	Key string
-	Total_size uint32
+	FileId     uint32
 	Offset     uint32
-	Tstamp     int32
-	Ver        int32
+	TotalSize uint32
+	Tstamp int32
+	Version int32
 }
 
 type KeyDir struct {
 	map_ map[string]KeyEntry
-	//entrys []KeyEntry
 }
 
 func NewKeyDir() *KeyDir {
-	//var entrys []KeyEntry
 	map_ := make(map[string]KeyEntry)
 	return &KeyDir{map_}
 }
 
-func (dir *KeyDir) Set(key string, offset, total_sz uint32, tstamp, ver int32) error {
+func (dir *KeyDir) Put(key string, fileId, offset, totalSize uint32, tstamp, version int32) (int32, error) {
 	if dir == nil {
-		return ErrInvalid
+		return 0, ErrInvalid
 	}
 
-	entry := KeyEntry{total_sz, offset, tstamp, ver}
+	// var oldver int32
+	// entry1, ok := dir.map_[key]
+	// if ok {
+	// 	oldver = entry1.Version
+	// }
+
+	// if oldver < 0 {
+	// 	if version < 0 {
+	// 		return 0, errors.New("Has been deleted.")
+	// 	}
+	// 	version = 1 - oldver
+	// } else {
+	// 	if version < 0 {
+	// 		version = -1 - oldver
+	// 	} else {
+	// 		version = oldver + 1
+	// 	}
+	// }
+
+	entry := KeyEntry{fileId, offset, totalSize, tstamp, version}
 	dir.map_[key] = entry
 
-	return nil
+	return version, nil
 }
 
 func (dir *KeyDir) Get(key string) (*KeyEntry, bool, error) {
@@ -68,22 +85,22 @@ func (dir *KeyDir) Get(key string) (*KeyEntry, bool, error) {
 	return nil, false, nil
 }
 
-func (dir *KeyDir) Delete(key string) error {
-	if dir == nil {
-		return ErrInvalid
-	}
+// func (dir *KeyDir) Delete(key string) error {
+// 	if dir == nil {
+// 		return ErrInvalid
+// 	}
 
-	delete(dir.map_, key)
+// 	delete(dir.map_, key)
 
-	return nil
-}
+// 	return nil
+// }
 
-func (dir *KeyDir) GetMap() map[string]KeyEntry {
-	return dir.map_
-}
+// func (dir *KeyDir) GetMap() map[string]KeyEntry {
+// 	return dir.map_
+// }
 
-func (dir *KeyDir) DebugShow() {
-	for _, entry := range dir.map_ {
-		fmt.Printf("%v\n", entry)
-	}
-}
+// func (dir *KeyDir) DebugShow() {
+// 	for _, entry := range dir.map_ {
+// 		fmt.Printf("%v\n", entry)
+// 	}
+// }

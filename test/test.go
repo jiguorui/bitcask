@@ -6,15 +6,17 @@ import (
 )
 
 func test_file() {
-	f, err := bitcask.OpenFile("001.ar", 1)
+	f, err := bitcask.OpenFile("002.data", 1)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	defer f.Close()
-	f.Put("abc", []byte("defghi"), 1)
-	b, _ := f.Get("abc")
-	fmt.Printf("%v\n", b)
+	offset, size, err := f.Write("abc", []byte("defghi"), 1)
+	//b, _ := f.Get("abc")
+	fmt.Println(err)
+	k, v, err := f.Read(offset, size)
+	fmt.Printf("%s, %s, %d\n", k, v, size)
 	//bucket.Merge("001.ar.data")
 }
 
@@ -27,23 +29,23 @@ func test_file() {
 
 // }
 
- func test_bitcask() {
- 	bc, err := bitcask.Open(".")
- 	if err != nil {
- 		fmt.Println(err)
- 		return
- 	}
- 	defer bc.Close()
+//  func test_bitcask() {
+//  	bc, err := bitcask.Open(".")
+//  	if err != nil {
+//  		fmt.Println(err)
+//  		return
+//  	}
+//  	defer bc.Close()
 
- 	for i := 0; i < 1000; i++ {
-		s := fmt.Sprintf("key:%d", i)
-		err := bc.Delete(s)//, []byte("dkjkjksfjkk"))
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		//fmt.Printf("%v\n", b)
-}
+//  	for i := 0; i < 1000; i++ {
+// 		s := fmt.Sprintf("key:%d", i)
+// 		err := bc.Delete(s)//, []byte("dkjkjksfjkk"))
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			continue
+// 		}
+// 		//fmt.Printf("%v\n", b)
+// }
 // 		// if i % 2 == 0 {
 // 		//err = bc.Delete(s)
 // 		 if err != nil {
@@ -63,13 +65,13 @@ func test_file() {
 // 		}
 // 	}
 // }
-}
+//}
 func main() {
 	//test_bucket()
 	//test_keydir()
 	//test_bitcask()
-	//test_file()
-	test_bitcask()
+	test_file()
+	//test_bitcask()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"
 	//fmt.Printf("%s\n", a["abc"])
