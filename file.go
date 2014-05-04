@@ -34,12 +34,22 @@ const (
 var emptyKey string = ""
 var emptyValue []byte = []byte("")
 
+// type File struct {
+// 	path    string
+// 	file_id int
+// 	wfile   *os.File
+// 	rfile   *os.File
+// }
+
 type File struct {
-	path    string
-	file_id int
-	wfile   *os.File
-	rfile   *os.File
+	filename string
+	mode int
+	fileid int
+	fd *os.File
+	offset int64
+	lastoffset int64
 }
+
 
 var ErrInvalid = errors.New("invalid argument")
 
@@ -49,17 +59,17 @@ func OpenFile(path string, id int) (*File, error) {
 		return nil, errors.New("File is not exist.")
 	}
 
-	wf, err := os.OpenFile(path, os.O_APPEND, os.ModePerm)
+	fd, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 
-	rf, err := os.Open(path)
+	off, err := fd.Seek(0, os.SEEK_END)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &File{path, id, wf, rf}
+	f := &File{path, os.O_RDWR, id, fd, off, off}
 
 	return f, nil
 }
@@ -70,15 +80,8 @@ func (f *File) Write(key string, value []byte, ver int32) (uint32, uint32, error
 		return 0, 0, ErrInvalid
 	}
 
-	// be sure append(?) and get offset
-	offset_, err := f.wfile.Seek(0, os.SEEK_END)
-	if err != nil {
-		return 0, 0, err
-	}
-
 	// any problem here ?
-	offset := uint32(offset_)
-
+	offset := uint32(f.offset)
 	crc := uint32(0)
 	tstamp := int32(0)
 
@@ -102,8 +105,10 @@ func (f *File) Write(key string, value []byte, ver int32) (uint32, uint32, error
 	crc = crc32.ChecksumIEEE(buf[4:])
 	binary.LittleEndian.PutUint32(buf[0:4], crc)
 
-	n, err := f.wfile.Write(buf)
-
+	n, err := f.fd.WriteAt(buf, f.offset)
+	// err ? unwrite ?
+	f.lastoffset = f.offset
+	f.offset += int64(n)
 	// what if n < totalSize ?
 	return offset, uint32(n), err
 }
@@ -113,13 +118,8 @@ func (f *File) Read(offset, size uint32) (key string, value []byte, err error) {
 		return emptyKey, emptyValue, ErrInvalid
 	}
 
-	_, err = f.rfile.Seek(int64(offset), os.SEEK_SET)
-	if err != nil {
-		return emptyKey, emptyValue, err
-	}
-
 	buf := make([]byte, size)
-	n, err := f.rfile.Read(buf)
+	n, err := f.fd.ReadAt(buf, int64(offset))
 	if err != nil {
 		return emptyKey, emptyValue, err
 	}
@@ -151,20 +151,21 @@ func (f *File) Scan(keydir *KeyDir) error {
 		return ErrInvalid
 	}
 
-	_, err := f.rfile.Seek(0, os.SEEK_SET)
-	if err != nil {
-		return err
-	}
-
+	// _, err := f.rfile.Seek(0, os.SEEK_SET)
+	// if err != nil {
+	// 	return err
+	// }
+	var off int64 = 0
 	for {
 		buf := make([]byte, recordHeaderSize)
-		n, err := f.rfile.Read(buf)
+		n, err := f.fd.ReadAt(buf, off)
 		if err != nil {
 			return err
 		}
 		if n == 0 {
 			break
 		}
+		off += int64(n)
 
 		//crc := binary.LittleEndian.Uint32(buf[0:4])
 		tstamp := binary.LittleEndian.Uint32(buf[4:8])
@@ -174,10 +175,11 @@ func (f *File) Scan(keydir *KeyDir) error {
 		ver := binary.LittleEndian.Uint32(buf[20:24])
 
 		keybuf := make([]byte, ksz)
-		n, err = f.rfile.Read(keybuf)
+		n, err = f.fd.ReadAt(keybuf, off)
 		if err != nil {
 			return err
 		}
+		off += int64(n)
 
 		var oldver int32
 		key := string(keybuf)
@@ -185,12 +187,12 @@ func (f *File) Scan(keydir *KeyDir) error {
 		if ok {
 			oldver = entry.Version
 		}
-		offset_, err := f.rfile.Seek(int64(vsz), os.SEEK_CUR)
+		off += int64(vsz)
 
 		if math.Abs(float64(ver)) > math.Abs(float64(oldver)) {
 			totalSz := ksz + vsz + uint32(recordHeaderSize)
-			offset := uint32(offset_) - totalSz
-			keydir.Put(key, uint32(f.file_id), offset, totalSz, int32(tstamp), int32(ver))
+			offset := uint32(off) - totalSz
+			keydir.Put(key, uint32(f.fileid), offset, totalSz, int32(tstamp), int32(ver))
 		}
 	}
 
@@ -203,7 +205,6 @@ func (f *File) Close() {
 	if f == nil {
 		return
 	}
-	f.wfile.Close()
-	f.rfile.Close()
+	f.fd.Close()	
 }
 
