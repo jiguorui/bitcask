@@ -14,9 +14,10 @@ func test_file() {
 	defer f.Close()
 	offset, size, err := f.Write("abc", []byte("defghi"), 1)
 	//b, _ := f.Get("abc")
+	f.Unwrite()
 	fmt.Println(err)
 	k, v, err := f.Read(offset, size)
-	fmt.Printf("%s, %s, %d\n", k, v, size)
+	fmt.Printf("%s, %s, %v\n", k, v, err)
 	//bucket.Merge("001.ar.data")
 }
 
@@ -73,8 +74,8 @@ func test_file() {
 func main() {
 	//test_bucket()
 	//test_keydir()
-	test_bitcask()
-	//test_file()
+	//test_bitcask()
+	test_file()
 	//test_bitcask()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"

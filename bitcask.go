@@ -87,6 +87,7 @@ func (bc *Bitcask) Put(key string, value []byte) (int, error) {
 
 	offset, size, err := bc.files[bc.active_fid].Write(key, value, oldver + 1)
 	if err != nil {
+		err = bc.files[bc.active_fid].Unwrite()
 		return 0, err
 	}
 

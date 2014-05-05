@@ -45,7 +45,7 @@ type File struct {
 	filename string
 	mode int
 	fileid int
-	fd *os.File
+	fp *os.File
 	offset int64
 	lastoffset int64
 }
@@ -59,17 +59,17 @@ func OpenFile(path string, id int) (*File, error) {
 		return nil, errors.New("File is not exist.")
 	}
 
-	fd, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
+	fp, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 
-	off, err := fd.Seek(0, os.SEEK_END)
+	off, err := fp.Seek(0, os.SEEK_END)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &File{path, os.O_RDWR, id, fd, off, off}
+	f := &File{path, os.O_RDWR, id, fp, off, off}
 
 	return f, nil
 }
@@ -105,12 +105,35 @@ func (f *File) Write(key string, value []byte, ver int32) (uint32, uint32, error
 	crc = crc32.ChecksumIEEE(buf[4:])
 	binary.LittleEndian.PutUint32(buf[0:4], crc)
 
-	n, err := f.fd.WriteAt(buf, f.offset)
-	// err ? unwrite ?
+	n, err := f.fp.WriteAt(buf, f.offset)
 	f.lastoffset = f.offset
 	f.offset += int64(n)
 	// what if n < totalSize ?
+	if n != totalSize {
+		return offset, uint32(n), errors.New("write failed. n != totalSize")
+	}
 	return offset, uint32(n), err
+}
+
+// WARNING: Only undo the last write.
+func (f *File) Unwrite() error {
+	if f == nil {
+		return ErrInvalid
+	}
+
+	off, err := f.fp.Seek(f.lastoffset, os.SEEK_SET)
+	if err != nil || off != f.lastoffset {
+		return err
+	}
+
+	err = f.fp.Truncate(off)
+	if err != nil {
+		return err
+	}
+
+	f.offset = f.lastoffset
+
+	return nil
 }
 
 func (f *File) Read(offset, size uint32) (key string, value []byte, err error) {
@@ -119,7 +142,7 @@ func (f *File) Read(offset, size uint32) (key string, value []byte, err error) {
 	}
 
 	buf := make([]byte, size)
-	n, err := f.fd.ReadAt(buf, int64(offset))
+	n, err := f.fp.ReadAt(buf, int64(offset))
 	if err != nil {
 		return emptyKey, emptyValue, err
 	}
@@ -158,7 +181,7 @@ func (f *File) Scan(keydir *KeyDir) error {
 	var off int64 = 0
 	for {
 		buf := make([]byte, recordHeaderSize)
-		n, err := f.fd.ReadAt(buf, off)
+		n, err := f.fp.ReadAt(buf, off)
 		if err != nil {
 			return err
 		}
@@ -175,7 +198,7 @@ func (f *File) Scan(keydir *KeyDir) error {
 		ver := binary.LittleEndian.Uint32(buf[20:24])
 
 		keybuf := make([]byte, ksz)
-		n, err = f.fd.ReadAt(keybuf, off)
+		n, err = f.fp.ReadAt(keybuf, off)
 		if err != nil {
 			return err
 		}
@@ -205,6 +228,6 @@ func (f *File) Close() {
 	if f == nil {
 		return
 	}
-	f.fd.Close()	
+	f.fp.Close()	
 }
 
