@@ -39,8 +39,8 @@ func test_file() {
  	defer bc.Close()
 
  	bc.Put("abcde", []byte("fghijklmnop"))
- 	v, e := bc.Get("abc")
- 	fmt.Printf("%v,%v\n", v, e)
+ 	v, e := bc.Get("abcde")
+ 	fmt.Printf("%s,%v\n", v, e)
 
 //  	for i := 0; i < 1000; i++ {
 // 		s := fmt.Sprintf("key:%d", i)
@@ -75,8 +75,8 @@ func main() {
 	//test_bucket()
 	//test_keydir()
 	//test_bitcask()
-	test_file()
-	//test_bitcask()
+	//test_file()
+	test_bitcask()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"
 	//fmt.Printf("%s\n", a["abc"])

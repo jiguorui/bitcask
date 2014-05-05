@@ -25,6 +25,11 @@ import (
 	//"math"
 )
 
+const (
+	maxFileSize uint32 = 0x01000000
+	maxFileNum uint32 = 5
+)
+
 type Bitcask struct {
 	files       []*File
 	active_fid int
@@ -33,7 +38,7 @@ type Bitcask struct {
 
 // Open an existing Bitcask datastore.
 func Open(dir string) (*Bitcask, error) {
-	fnames := []string{"002.data", "003.data", "004.data"}
+	fnames := []string{"001.data", "002.data", "003.data", "004.data", "005.data"}
 	sep := "/"
 	if strings.HasSuffix(dir, "/") {
 		sep = ""
@@ -53,11 +58,11 @@ func Open(dir string) (*Bitcask, error) {
 		files = append(files, f)
 
 		// find active file
-		//sz, err := f.Size()
-		//if err == nil && sz < 0xffff {
-		active_fid = 0
-		//	continue
-		//}
+		sz, err := f.Size()
+		if err == nil && sz < maxFileSize {
+			active_fid = 0
+			continue
+		}
 	}
 
 	keydir := NewKeyDir()
@@ -72,6 +77,7 @@ func (bc *Bitcask) Put(key string, value []byte) (int, error) {
 	if bc == nil {
 		return 0, ErrInvalid
 	}
+
 	var oldver int32 = 0
 	entry, ok, err := bc.keydir.Get(key)
 	if err != nil {
@@ -92,6 +98,9 @@ func (bc *Bitcask) Put(key string, value []byte) (int, error) {
 	}
 
 	_, err = bc.keydir.Put(key, uint32(bc.active_fid), offset, size, 0, oldver + 1)
+	if offset > maxFileSize {
+		bc.active_fid ++
+	}
 	return int(size), err
 }
 

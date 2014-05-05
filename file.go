@@ -169,6 +169,14 @@ func (f *File) Read(offset, size uint32) (key string, value []byte, err error) {
 	return key, value, nil
 }
 
+func (f *File) Size() (uint32, error) {
+	if f == nil {
+		return 0, ErrInvalid
+	}
+
+	return uint32(f.offset), nil
+}
+
 func (f *File) Scan(keydir *KeyDir) error {
 	if f == nil || keydir == nil {
 		return ErrInvalid
