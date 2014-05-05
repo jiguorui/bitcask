@@ -28,7 +28,7 @@ type KeyEntry struct {
 	Offset     uint32
 	TotalSize uint32
 	Tstamp int32
-	Version int32
+	//Reserved int32
 }
 
 type KeyDir struct {
@@ -40,15 +40,15 @@ func NewKeyDir() *KeyDir {
 	return &KeyDir{map_}
 }
 
-func (dir *KeyDir) Put(key string, fileId, offset, totalSize uint32, tstamp, version int32) (int32, error) {
+func (dir *KeyDir) Put(key string, fileId, offset, totalSize uint32, tstamp int32) error {
 	if dir == nil {
-		return 0, ErrInvalid
+		return ErrInvalid
 	}
 
-	entry := KeyEntry{fileId, offset, totalSize, tstamp, version}
+	entry := KeyEntry{fileId, offset, totalSize, tstamp}
 	dir.map_[key] = entry
 
-	return version, nil
+	return nil
 }
 
 func (dir *KeyDir) Get(key string) (*KeyEntry, bool, error) {

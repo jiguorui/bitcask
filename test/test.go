@@ -30,6 +30,10 @@ func test_file() {
 
 // }
 
+func test_time() {
+	fmt.Printf("time stamp, %d\n", bitcask.Tstamp())
+}
+
  func test_bitcask() {
  	bc, err := bitcask.Open(".")
  	if err != nil {
@@ -76,6 +80,7 @@ func main() {
 	//test_keydir()
 	//test_bitcask()
 	//test_file()
+	test_time()
 	test_bitcask()
 	//a := make(map[string]string,100)
 	//a["abc"] = "ddd"

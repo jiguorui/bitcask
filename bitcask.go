@@ -78,26 +78,14 @@ func (bc *Bitcask) Put(key string, value []byte) (int, error) {
 		return 0, ErrInvalid
 	}
 
-	var oldver int32 = 0
-	entry, ok, err := bc.keydir.Get(key)
-	if err != nil {
-		return 0, err
-	}
-	if ok {
-		if entry.Version < 0 {
-			oldver = (0 - entry.Version)
-		} else {
-			oldver = entry.Version
-		}
-	}
-
-	offset, size, err := bc.files[bc.active_fid].Write(key, value, oldver + 1)
+	tstamp := Tstamp()
+	offset, size, err := bc.files[bc.active_fid].Write(key, value, tstamp)
 	if err != nil {
 		err = bc.files[bc.active_fid].Unwrite()
 		return 0, err
 	}
 
-	_, err = bc.keydir.Put(key, uint32(bc.active_fid), offset, size, 0, oldver + 1)
+	err = bc.keydir.Put(key, uint32(bc.active_fid), offset, size, tstamp)
 	if offset > maxFileSize {
 		bc.active_fid ++
 	}
@@ -114,9 +102,6 @@ func (bc *Bitcask) Get(key string) ([]byte, error) {
 		return emptyValue, err
 	}
 	if ok {
-		if entry.Version < 0 {
-			return emptyValue, errors.New("be deleted")
-		}
 		_, value, err := bc.files[entry.FileId].Read(entry.Offset, entry.TotalSize)
 		if err != nil {
 			return emptyValue, err

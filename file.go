@@ -23,7 +23,7 @@ import (
 	"errors"
 	"hash/crc32"
 	"os"
-	"math"
+	//"math"
 	//"fmt"
 )
 
@@ -75,7 +75,7 @@ func OpenFile(path string, id int) (*File, error) {
 }
 
 //write key/value to file and return (offset, size, err)
-func (f *File) Write(key string, value []byte, ver int32) (uint32, uint32, error) {
+func (f *File) Write(key string, value []byte, tstamp int32) (uint32, uint32, error) {
 	if f == nil {
 		return 0, 0, ErrInvalid
 	}
@@ -83,7 +83,7 @@ func (f *File) Write(key string, value []byte, ver int32) (uint32, uint32, error
 	// any problem here ?
 	offset := uint32(f.offset)
 	crc := uint32(0)
-	tstamp := int32(0)
+	//tstamp := int32(0)
 
 	keySize := uint32(len(key))
 	valueSize := uint32(len(value))
@@ -97,7 +97,8 @@ func (f *File) Write(key string, value []byte, ver int32) (uint32, uint32, error
 	binary.LittleEndian.PutUint32(buf[8:12], keySize)
 	binary.LittleEndian.PutUint32(buf[12:16], valueSize)
 	binary.LittleEndian.PutUint32(buf[16:20], uint32(flags))
-	binary.LittleEndian.PutUint32(buf[20:24], uint32(ver))
+	//ver, reserved, nouse now
+	binary.LittleEndian.PutUint32(buf[20:24], uint32(0))
 
 	copy(buf[24:24+keySize], []byte(key))
 	copy(buf[24+keySize:], value)
@@ -199,11 +200,11 @@ func (f *File) Scan(keydir *KeyDir) error {
 		off += int64(n)
 
 		//crc := binary.LittleEndian.Uint32(buf[0:4])
-		tstamp := binary.LittleEndian.Uint32(buf[4:8])
+		//tstamp := binary.LittleEndian.Uint32(buf[4:8])
 		ksz := binary.LittleEndian.Uint32(buf[8:12])
 		vsz := binary.LittleEndian.Uint32(buf[12:16])
 		//flags := binary.LittleEndian.Uint32(buf[16:20])
-		ver := binary.LittleEndian.Uint32(buf[20:24])
+		//ver := binary.LittleEndian.Uint32(buf[20:24])
 
 		keybuf := make([]byte, ksz)
 		n, err = f.fp.ReadAt(keybuf, off)
@@ -212,19 +213,10 @@ func (f *File) Scan(keydir *KeyDir) error {
 		}
 		off += int64(n)
 
-		var oldver int32
-		key := string(keybuf)
-		entry, ok, err := keydir.Get(key)
-		if ok {
-			oldver = entry.Version
-		}
+		//key := string(keybuf)
+		//_, _, err := keydir.Get(key)
 		off += int64(vsz)
 
-		if math.Abs(float64(ver)) > math.Abs(float64(oldver)) {
-			totalSz := ksz + vsz + uint32(recordHeaderSize)
-			offset := uint32(off) - totalSz
-			keydir.Put(key, uint32(f.fileid), offset, totalSz, int32(tstamp), int32(ver))
-		}
 	}
 
 	return nil
